@@ -21,7 +21,7 @@ import server from '../environment'
 import UshaMeetXLogo from '../components/UshaMeetXLogo'
 import { getAvatar } from '../components/AvatarPicker'
 
-const server_url = server.prod;
+const server_url = server;
 
 var connections = {}
 
