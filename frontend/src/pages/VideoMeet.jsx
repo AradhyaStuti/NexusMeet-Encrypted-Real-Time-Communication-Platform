@@ -232,6 +232,7 @@ export default function VideoMeetComponent() {
 
             socketRef.current.on('user-joined', (id, clients) => {
                 clients.forEach((socketListId) => {
+                    if (socketListId === socketIdRef.current) return
                     connections[socketListId] = new RTCPeerConnection(peerConfigConnections)
 
                     connections[socketListId].onicecandidate = function (event) {
