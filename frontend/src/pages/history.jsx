@@ -1,88 +1,187 @@
-import React, { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { AuthContext } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom';
-import Card from '@mui/material/Card';
-import Box from '@mui/material/Box';
-import CardActions from '@mui/material/CardActions';
-import CardContent from '@mui/material/CardContent';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import HomeIcon from '@mui/icons-material/Home';
+import { useNavigate } from 'react-router-dom'
+import withAuth from '../utils/withAuth'
+import { IconButton } from '@mui/material'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import VideocamIcon from '@mui/icons-material/Videocam'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
+import "../App.css"
+import UshaMeetXLogo from '../components/UshaMeetXLogo'
+import AvatarPicker from '../components/AvatarPicker'
 
-import { IconButton } from '@mui/material';
-export default function History() {
-
-
-    const { getHistoryOfUser } = useContext(AuthContext);
-
+function History() {
+    const { getHistoryOfUser, deleteFromUserHistory } = useContext(AuthContext)
     const [meetings, setMeetings] = useState([])
-
-
-    const routeTo = useNavigate();
+    const [deletingId, setDeletingId] = useState(null)
+    const navigate = useNavigate()
 
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const history = await getHistoryOfUser();
-                setMeetings(history);
-            } catch {
-                // IMPLEMENT SNACKBAR
-            }
+                const history = await getHistoryOfUser()
+                setMeetings(history)
+            } catch { }
         }
-
-        fetchHistory();
+        fetchHistory()
     }, [])
 
-    let formatDate = (dateString) => {
+    const formatDate = (dateString) => {
+        const d = new Date(dateString)
+        const day = d.getDate().toString().padStart(2, '0')
+        const month = (d.getMonth() + 1).toString().padStart(2, '0')
+        const year = d.getFullYear()
+        const h = d.getHours().toString().padStart(2, '0')
+        const m = d.getMinutes().toString().padStart(2, '0')
+        return `${day}/${month}/${year} at ${h}:${m}`
+    }
 
-        const date = new Date(dateString);
-        const day = date.getDate().toString().padStart(2, "0");
-        const month = (date.getMonth() + 1).toString().padStart(2, "0")
-        const year = date.getFullYear();
+    const handleDelete = async (meetingId) => {
+        setDeletingId(meetingId)
+        try {
+            await deleteFromUserHistory(meetingId)
+            setMeetings(prev => prev.filter(m => m._id !== meetingId))
+        } catch { }
+        setDeletingId(null)
+    }
 
-        return `${day}/${month}/${year}`
-
+    const handleClearAll = async () => {
+        for (const meeting of meetings) {
+            try { await deleteFromUserHistory(meeting._id) } catch { }
+        }
+        setMeetings([])
     }
 
     return (
-        <div>
+        <div className="historyPageContainer">
 
-            <IconButton onClick={() => {
-                routeTo("/home")
-            }}>
-                <HomeIcon />
-            </IconButton >
-            {
-                (meetings.length !== 0) ? meetings.map((e, i) => {
-                    return (
+            {/* Navbar */}
+            <div className="navBar">
+                <div className="navBarBrand">
+                    <UshaMeetXLogo size={36} />
+                    <h2>UshaMeetX</h2>
+                </div>
+                <div className="navBarActions">
+                    <IconButton onClick={() => navigate('/home')} title="Back to Home"
+                        sx={{ color: 'rgba(139,154,176,0.7)', '&:hover': { color: '#7dd3fc', background: 'rgba(14,165,233,0.08)' } }}>
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <AvatarPicker size={36} />
+                </div>
+            </div>
 
-                        <>
+            <div className="historyContent">
+                <div className="historyHeader">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div>
+                            <h1>Meeting History</h1>
+                            <p>
+                                {meetings.length > 0
+                                    ? `${meetings.length} meeting${meetings.length > 1 ? 's' : ''} attended`
+                                    : 'Your past meetings will appear here'}
+                            </p>
+                        </div>
+                        {meetings.length > 0 && (
+                            <button
+                                onClick={handleClearAll}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    background: 'rgba(239,68,68,0.08)',
+                                    border: '1px solid rgba(239,68,68,0.2)',
+                                    color: '#fca5a5',
+                                    padding: '0.42rem 0.9rem',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 600,
+                                    fontFamily: 'inherit',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseOver={e => {
+                                    e.currentTarget.style.background = 'rgba(239,68,68,0.18)'
+                                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.4)'
+                                }}
+                                onMouseOut={e => {
+                                    e.currentTarget.style.background = 'rgba(239,68,68,0.08)'
+                                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'
+                                }}
+                            >
+                                <DeleteSweepIcon sx={{ fontSize: '1rem' }} />
+                                Clear All
+                            </button>
+                        )}
+                    </div>
+                </div>
 
-
-                            <Card key={i} variant="outlined">
-
-
-                                <CardContent>
-                                    <Typography sx={{ fontSize: 14 }} color="text.secondary" gutterBottom>
-                                        Code: {e.meetingCode}
-                                    </Typography>
-
-                                    <Typography sx={{ mb: 1.5 }} color="text.secondary">
-                                        Date: {formatDate(e.date)}
-                                    </Typography>
-
-                                </CardContent>
-
-
-                            </Card>
-
-
-                        </>
-                    )
-                }) : <></>
-
-            }
-
+                {meetings.length > 0 ? (
+                    <div className="historyGrid">
+                        {meetings.map((meeting) => (
+                            <div key={meeting._id} className="historyCard">
+                                <div className="historyCardLeft">
+                                    <div className="historyCardIconWrap">
+                                        <VideocamIcon sx={{ fontSize: '1.1rem', color: '#38bdf8' }} />
+                                    </div>
+                                    <div>
+                                        <div className="historyCardCode">{meeting.meetingCode}</div>
+                                        <div className="historyCardDate">{formatDate(meeting.date)}</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <button
+                                        onClick={() => navigate(`/${meeting.meetingCode}`)}
+                                        onMouseOver={e => {
+                                            e.currentTarget.style.background = 'rgba(14,165,233,0.2)'
+                                            e.currentTarget.style.borderColor = 'rgba(14,165,233,0.5)'
+                                        }}
+                                        onMouseOut={e => {
+                                            e.currentTarget.style.background = 'rgba(14,165,233,0.1)'
+                                            e.currentTarget.style.borderColor = 'rgba(14,165,233,0.25)'
+                                        }}
+                                        style={{
+                                            background: 'rgba(14,165,233,0.1)',
+                                            border: '1px solid rgba(14,165,233,0.25)',
+                                            color: '#38bdf8',
+                                            padding: '0.42rem 1rem',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '0.82rem',
+                                            fontWeight: 600,
+                                            fontFamily: 'inherit',
+                                            transition: 'all 0.2s',
+                                            whiteSpace: 'nowrap',
+                                        }}>
+                                        Rejoin →
+                                    </button>
+                                    <IconButton
+                                        onClick={() => handleDelete(meeting._id)}
+                                        disabled={deletingId === meeting._id}
+                                        size="small"
+                                        title="Delete"
+                                        sx={{
+                                            color: 'rgba(239,68,68,0.5)',
+                                            '&:hover': { color: '#fca5a5', background: 'rgba(239,68,68,0.1)' },
+                                            '&:disabled': { color: 'rgba(255,255,255,0.15)' },
+                                        }}
+                                    >
+                                        <DeleteOutlineIcon fontSize="small" />
+                                    </IconButton>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="historyEmpty">
+                        <div className="historyEmptyIcon">📅</div>
+                        <h3>No meetings yet</h3>
+                        <p>Start or join a meeting to see your history here.</p>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
+
+export default withAuth(History)

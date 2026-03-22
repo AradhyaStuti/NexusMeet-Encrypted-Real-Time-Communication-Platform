@@ -44,7 +44,7 @@ const register = async (req, res) => {
     try {
         const existingUser = await User.findOne({ username });
         if (existingUser) {
-            return res.status(httpStatus.FOUND).json({ message: "User already exists" });
+            return res.status(httpStatus.CONFLICT).json({ message: "User already exists" });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -98,4 +98,18 @@ const addToHistory = async (req, res) => {
 }
 
 
-export { login, register, getUserHistory, addToHistory }
+const deleteFromHistory = async (req, res) => {
+    const { token, meeting_id } = req.body;
+
+    try {
+        const user = await User.findOne({ token: token });
+        if (!user) return res.status(httpStatus.NOT_FOUND).json({ message: "User not found" });
+
+        await Meeting.findOneAndDelete({ _id: meeting_id, user_id: user.username });
+        res.status(httpStatus.OK).json({ message: "Meeting deleted" });
+    } catch (e) {
+        res.json({ message: `Something went wrong ${e}` });
+    }
+}
+
+export { login, register, getUserHistory, addToHistory, deleteFromHistory }
