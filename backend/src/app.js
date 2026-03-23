@@ -24,17 +24,21 @@ app.set("trust proxy", 1);
 // ── CORS ──
 const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(",").map(o => o.trim())
-    : ["http://localhost:3000"];
+    : null; // null = allow all in dev
 
-app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-        cb(new Error("Not allowed by CORS"));
-    },
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
-}));
-app.options("*", cors());
+const corsOptions = allowedOrigins
+    ? {
+        origin: (origin, cb) => {
+            if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+            cb(new Error("Not allowed by CORS"));
+        },
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: true,
+    }
+    : { origin: true, credentials: true }; // allow all if CORS_ORIGINS not set
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // ── Body parsers ──
 app.use(express.json({ limit: "40kb" }));
