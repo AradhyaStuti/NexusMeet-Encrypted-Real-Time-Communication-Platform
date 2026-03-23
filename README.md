@@ -1,237 +1,149 @@
-<div align="center">
+# UshaMeetX
 
-![UshaMeetX Banner](./screenshots/banner.svg)
+A video conferencing web app. WebRTC for peer-to-peer video, Socket.io for signaling and real-time stuff, React frontend, Node/Express backend with MongoDB.
 
-<br/>
+Basically you create a meeting, share the link, and people join - no downloads or accounts needed for guests. Has screen sharing, chat, reactions, all that.
 
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white&labelColor=0d1117)](https://reactjs.org)
-[![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs&logoColor=white&labelColor=0d1117)](https://nodejs.org)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb&logoColor=white&labelColor=0d1117)](https://mongodb.com)
-[![Socket.io](https://img.shields.io/badge/Socket.io-Realtime-010101?style=for-the-badge&logo=socketdotio&logoColor=white&labelColor=0d1117)](https://socket.io)
-[![WebRTC](https://img.shields.io/badge/WebRTC-P2P_Video-333333?style=for-the-badge&logo=webrtc&logoColor=white&labelColor=0d1117)](https://webrtc.org)
-[![MUI](https://img.shields.io/badge/MUI-v5-007FFF?style=for-the-badge&logo=mui&logoColor=white&labelColor=0d1117)](https://mui.com)
-
-<br/>
-
-**UshaMeetX** is a full-stack, real-time HD video conferencing web app built with WebRTC and Socket.io.
-No downloads. No plugins. Just open a link and meet.
-
-[Live Demo](#deployment) · [Features](#-features) · [Quick Start](#-quick-start)
-
-</div>
+![React](https://img.shields.io/badge/React_18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Node](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=flat-square&logo=socketdotio&logoColor=white)
+![WebRTC](https://img.shields.io/badge/WebRTC-333?style=flat-square&logo=webrtc&logoColor=white)
 
 ---
 
-## ✨ Features
+## What's in it
 
-| Feature | Description |
-|---|---|
-| **HD Video Calls** | Peer-to-peer WebRTC streaming with adaptive quality |
-| **Instant Meetings** | Create a meeting in one click — get a shareable link immediately |
-| **Guest Join** | Anyone can join via link — no account or download required |
-| **Screen Sharing** | Share your full screen or a specific window/tab |
-| **Live Chat** | Real-time in-meeting text chat with message history |
-| **Spotlight Mode** | Tap any participant's video to pin it full-screen |
-| **Volume Control** | Adjust each participant's audio independently |
-| **Avatar Picker** | Choose from 16 emoji avatars — persists across sessions |
-| **Meeting History** | View, rejoin, or delete past meetings with one click |
-| **Copy Meeting Link** | Share your invite link with a single tap |
-| **Auth System** | Secure register / login with token-based authentication |
+**Video & Media**
+- P2P video calls through WebRTC with multiple STUN servers. Also supports TURN if you configure it (helps behind corporate firewalls). If a connection drops, it tries an ICE restart automatically
+- Screen sharing - full screen or just a window, handles the fallback when you stop sharing
+- Spotlight mode where you can pin someone's video full-screen and the rest show up in a thumbnail strip on the side
+- Per-participant volume sliders that show up on hover
 
----
+**Collaboration stuff**
+- Real-time chat with timestamps and auto-scroll. Has a typing indicator so you can see when someone's writing. Messages go through DOMPurify to prevent XSS
+- Emoji reactions (👍👏❤️😂🎉🔥) that float up on the screen, everyone sees them
+- Hand raise feature with a little wave animation on your video tile
+- Actual participant names and avatars show up on the video tiles instead of just "Participant 1"
 
-## 🏗️ Tech Stack
+**Other**
+- Keyboard shortcuts - M for mute, V for video, C for chat, H for hand raise, E to end the call. Disabled when you're typing in an input field obviously
+- Network quality indicator (green/yellow/red dot) calculated from WebRTC round trip time stats
+- Guest join via link, no account required. Or create an account to keep meeting history
+- Meeting history page where you can rejoin or delete old meetings
+- 16 emoji avatars you can pick from, saved to localStorage
+- Mobile responsive - the video grid, controls, chat panel and spotlight all adapt
 
-### Frontend
-```
-React 18          — SPA with React Router v6
-Material UI v5    — Component library (dark theme)
-Socket.io Client  — Real-time signaling
-WebRTC            — Peer-to-peer audio/video
-CSS Modules       — Scoped styles for meeting room
-```
+## Tech stack
 
-### Backend
-```
-Node.js + Express — REST API server
-Socket.io         — WebRTC signaling server + chat
-MongoDB + Mongoose — User accounts + meeting history
-bcrypt            — Password hashing
-crypto            — Token generation
-```
+**Frontend** - React 18 with React Router v6, Material UI for components with a custom dark theme, Socket.io client for real-time events, WebRTC API using the modern `addTrack`/`replaceTrack` (not the deprecated `addStream`), CSS Modules for scoped styles, Axios with request/response interceptors for JWT, DOMPurify for sanitizing chat
 
-### Architecture
-```
-Browser A ──WebRTC P2P──► Browser B
-    │                          │
-    └──── Socket.io ────────────┘
-               │
-           Node.js Server
-               │
-           MongoDB Atlas
-```
+**Backend** - Express with Helmet for security headers, JWT authentication with bcrypt for password hashing, rate limiting on auth endpoints (30 req per 15 min), Socket.io handling signaling + chat + reactions + typing + hand raise. Socket messages are rate limited too (10 per 10 sec per client). MongoDB with Mongoose, compound indexes on the meeting model. Winston for structured logging with file rotation. Graceful shutdown handler for SIGTERM/SIGINT
 
----
+**Testing & CI** - 32 tests total. Backend uses node's built-in test runner for JWT, input validation, rate limiting logic and the logger. Frontend uses Jest + React Testing Library for the landing page, error boundary and avatar picker. GitHub Actions runs everything on push/PR - syntax checks, tests, production build
 
-## 🚀 Quick Start
+## Getting started
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- MongoDB Atlas account (free tier works)
-
-### 1. Clone the repo
 ```bash
-git clone https://github.com/YOUR_USERNAME/UshaMeetX.git
-cd UshaMeetX
+git clone https://github.com/AradhyaStuti/UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform.git
+cd UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform
 ```
 
-### 2. Start the backend
+Backend:
 ```bash
 cd backend
+cp .env.example .env     # edit this with your mongo URI and a JWT secret
 npm install
-npm start
-# Server runs on http://localhost:8000
+npm start                 # runs on localhost:8000
 ```
 
-### 3. Start the frontend
+Frontend (separate terminal):
 ```bash
 cd frontend
 npm install
-npm start
-# App opens at http://localhost:3000
+npm start                 # runs on localhost:3000
 ```
 
-> **Note:** Make sure `frontend/src/environment.js` has `IS_PROD` logic pointing to `http://localhost:8000` for local dev (handled automatically — `process.env.NODE_ENV` is used).
+The `.env.example` has everything you need. Main things are `MONGO_URI`, `JWT_SECRET`, and `CORS_ORIGINS`. If you have a TURN server you can add `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` too but it's not required for local dev.
 
----
+## Architecture notes
 
-## 🌐 Deployment
+On the backend, rooms are tracked in a `Map<path, Map<socketId, {username, avatar}>>` with a reverse `Map<socketId, path>` so looking up which room a socket belongs to is O(1) instead of iterating everything. Chat history is kept in memory capped at 200 messages per room, and rooms get cleaned up automatically when the last person disconnects.
 
-### Frontend → Vercel
+The ICE config (STUN/TURN servers) is served from a `/api/v1/ice-config` endpoint rather than hardcoded in the frontend, so if you're using TURN the credentials don't end up in client code.
+
+On the frontend, the WebRTC peer connections live in a `useRef` - I had them as a module-level variable before and it was causing weird shared state issues across re-renders. ICE config is fetched from the server right before creating any peer connections. If a connection fails, it automatically attempts an ICE restart with `createOffer({ iceRestart: true })`.
+
+Auth is JWT based - the axios instance has an interceptor that attaches the token to every request via `x-auth-token` header, and another interceptor that clears the token on 401 responses. The whole app is wrapped in an Error Boundary that catches render crashes and shows a recovery page instead of just going blank.
+
+## Running tests
+
 ```bash
-cd frontend
-npm run build
-# Deploy the build/ folder to Vercel or Netlify
-# Environment: NODE_ENV=production is set automatically
+cd backend && npm test      # 14 tests
+cd frontend && npm test     # 18 tests
 ```
 
-### Backend → Render
-1. Push the `backend/` folder to GitHub
-2. Create a new **Web Service** on [Render](https://render.com)
-3. Set **Start Command**: `node src/app.js`
-4. Set environment variables:
-   ```
-   PORT=8000
-   ```
-5. Your backend URL will be `https://your-service.onrender.com`
+There's a CI pipeline at `.github/workflows/ci.yml` that runs on every push and PR to main.
 
-### Update the backend URL
-Edit `frontend/src/environment.js`:
-```js
-const server = process.env.NODE_ENV === "production"
-    ? "https://YOUR-RENDER-URL.onrender.com"   // ← update this
-    : "http://localhost:8000";
-```
-
----
-
-## 📁 Project Structure
+## Project structure
 
 ```
-UshaMeetX/
-├── frontend/
-│   └── src/
-│       ├── components/
-│       │   ├── UshaMeetXLogo.jsx   ← SVG brand mark
-│       │   └── AvatarPicker.jsx    ← Emoji avatar system
-│       ├── contexts/
-│       │   └── AuthContext.jsx     ← Auth + API calls
-│       ├── pages/
-│       │   ├── landing.jsx         ← Marketing page
-│       │   ├── authentication.jsx  ← Sign In / Sign Up
-│       │   ├── home.jsx            ← Dashboard
-│       │   ├── history.jsx         ← Meeting history
-│       │   └── VideoMeet.jsx       ← Meeting room (WebRTC)
-│       ├── styles/
-│       │   └── videoComponent.module.css
-│       ├── utils/
-│       │   └── withAuth.jsx        ← Auth guard HOC
-│       └── environment.js          ← API URL config
-│
-└── backend/
-    └── src/
-        ├── controllers/
-│       │   ├── user.controller.js  ← Auth + history endpoints
-│       │   └── socketManager.js    ← WebRTC signaling + chat
-        ├── models/
-│       │   ├── user.model.js
-│       │   └── meeting.model.js
-        ├── routes/
-│       │   └── users.routes.js
-        └── app.js                  ← Express server entry
+backend/
+  src/
+    app.js
+    controllers/
+      user.controller.js      # JWT auth, requireAuth middleware, history CRUD
+      socketManager.js         # signaling, chat, reactions, hand raise, rate limiting
+    models/
+      user.model.js
+      meeting.model.js
+    routes/users.routes.js
+    utils/
+      jwt.js
+      logger.js
+  tests/
+    auth.test.js
+    logger.test.js
+
+frontend/src/
+  pages/
+    VideoMeet.jsx              # main meeting room component
+    landing.jsx
+    authentication.jsx
+    home.jsx
+    history.jsx
+  components/
+    ErrorBoundary.jsx
+    AvatarPicker.jsx
+    UshaMeetXLogo.jsx
+  contexts/AuthContext.jsx
+  styles/videoComponent.module.css
+
+.github/workflows/ci.yml
 ```
 
----
+## API endpoints
 
-## 🔌 API Reference
+| Method | Endpoint | Auth | |
+|---|---|---|---|
+| POST | `/api/v1/users/register` | no | create account |
+| POST | `/api/v1/users/login` | no | returns JWT |
+| GET | `/api/v1/users/get_all_activity` | yes | get meeting history |
+| POST | `/api/v1/users/add_to_activity` | yes | save a meeting |
+| DELETE | `/api/v1/users/delete_from_activity` | yes | delete a meeting |
+| GET | `/api/v1/ice-config` | no | STUN/TURN config |
+| GET | `/health` | no | server status |
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/users/register` | Create new account |
-| `POST` | `/api/v1/users/login` | Login, receive token |
-| `POST` | `/api/v1/users/add_to_activity` | Save meeting to history |
-| `GET`  | `/api/v1/users/get_all_activity` | Fetch meeting history |
-| `DELETE` | `/api/v1/users/delete_from_activity` | Delete a history entry |
+Socket.io events: `join-call`, `user-joined`, `user-left`, `signal`, `chat-message`, `hand-raise`, `reaction`, `typing`
 
-### Socket.io Events
+## Deployment
 
-| Event | Direction | Description |
-|---|---|---|
-| `join-call` | Client → Server | Join a meeting room |
-| `user-joined` | Server → Client | New participant joined |
-| `user-left` | Server → Client | Participant disconnected |
-| `signal` | Both | WebRTC SDP/ICE exchange |
-| `chat-message` | Both | Send/receive chat messages |
+Frontend goes on Vercel or Netlify - just run `npm run build` and point it at the `build/` folder.
 
----
+Backend goes on Render or similar - set the root directory to `backend`, start command is `node src/app.js`. Make sure to set `MONGO_URI`, `JWT_SECRET`, `CORS_ORIGINS` in the env vars.
 
-## 🎨 Design System
-
-| Token | Value | Usage |
-|---|---|---|
-| `--bg-base` | `#040d18` | Page background |
-| `--bg-mid` | `#071a2e` | Card backgrounds |
-| `--primary` | `#0ea5e9` | Buttons, accents |
-| `--primary-h` | `#0284c7` | Hover states |
-| `--highlight` | `#38bdf8` | Links, icons |
-| `--text-1` | `#f0f6fc` | Primary text |
-| `--text-2` | `#8b9ab0` | Secondary text |
+Then update `frontend/src/environment.js` with whatever URL your backend ends up at.
 
 ---
 
-## 👥 How Guest Join Works
-
-1. You start a meeting → browser navigates to `https://your-app.com/abc123xyz`
-2. Copy that URL and send it (WhatsApp, email, SMS)
-3. Recipient opens the link — lands directly on the meeting lobby
-4. They enter their name → click **Join Meeting**
-5. WebRTC connection established — they're in ✅
-
-No account required for guests. The meeting URL is the only credential needed.
-
----
-
-## 🛡️ Security
-
-- Passwords hashed with **bcrypt** (10 salt rounds)
-- Auth tokens generated with **crypto.randomBytes(20)**
-- Tokens stored in MongoDB, validated on every protected request
-- Meeting rooms identified by URL — share only with people you trust
-- History endpoints require a valid token — guests can't access user data
-
----
-
-*UshaMeetX — Connect with anyone, anywhere, anytime*
-
-</div>
+[@AradhyaStuti](https://github.com/AradhyaStuti)

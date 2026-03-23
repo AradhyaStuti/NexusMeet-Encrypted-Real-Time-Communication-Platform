@@ -1,6 +1,7 @@
 /*
   ═══════════════════════════════════
   VIDEO MEET — Midnight Navy + Sky Blue
+  FAANG-Level Production Styles
   ═══════════════════════════════════
 */
 
@@ -36,18 +37,6 @@
     gap: 0.5rem;
     margin-bottom: 1.6rem;
     justify-content: center;
-}
-
-.lobbyBrandIcon {
-    width: 38px;
-    height: 38px;
-    background: linear-gradient(135deg, #0ea5e9, #38bdf8);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.3rem;
-    box-shadow: 0 0 16px rgba(14,165,233,0.4);
 }
 
 .lobbyBrandName {
@@ -183,6 +172,43 @@
     border-radius: 6px;
     pointer-events: none;
     border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Hand raised badge */
+.handRaisedBadge {
+    animation: handWave 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes handWave {
+    from { transform: rotate(-8deg); }
+    to   { transform: rotate(8deg); }
+}
+
+/* Pin button */
+.pinBtn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 10;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.pinBtn:hover {
+    transform: scale(1.08);
 }
 
 /* Hover overlay */
@@ -204,20 +230,6 @@
 .videoHoverVisible {
     opacity: 1;
     pointer-events: all;
-}
-
-.hoverSpotlightHint {
-    font-size: 0.77rem;
-    color: rgba(125,211,252,0.9);
-    font-weight: 600;
-    text-align: center;
-    background: rgba(14,165,233,0.2);
-    border: 1px solid rgba(14,165,233,0.35);
-    border-radius: 7px;
-    padding: 3px 10px;
-    width: fit-content;
-    margin: 0 auto;
-    letter-spacing: 0.2px;
 }
 
 .hoverVolumeRow {
@@ -300,6 +312,9 @@
     font-size: 0.88rem;
     font-weight: 600;
     color: #e2f4fd;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .spotlightUnpin {
@@ -374,6 +389,14 @@
     background: rgba(5,13,24,0.6);
     padding: 2px 6px;
     border-radius: 4px;
+}
+
+.thumbnailHand {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 0.85rem;
+    animation: handWave 0.6s ease-in-out infinite alternate;
 }
 
 .thumbnailHint {
@@ -549,6 +572,99 @@
 }
 
 /* ========================
+   Floating Reactions
+======================== */
+.reactionsContainer {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 40;
+    pointer-events: none;
+}
+
+.floatingReaction {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    animation: floatUp 3s ease forwards;
+    opacity: 0;
+}
+
+@keyframes floatUp {
+    0%   { opacity: 0; transform: translateY(20px) scale(0.5); }
+    15%  { opacity: 1; transform: translateY(0) scale(1.15); }
+    25%  { transform: translateY(-10px) scale(1); }
+    85%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.8); }
+}
+
+.reactionEmoji {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+}
+
+.reactionName {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.6);
+    background: rgba(0,0,0,0.5);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* ========================
+   Reaction Picker
+======================== */
+.reactionPicker {
+    position: absolute;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    background: rgba(6,15,30,0.96);
+    border: 1px solid rgba(14,165,233,0.2);
+    border-radius: 14px;
+    padding: 8px 10px;
+    z-index: 30;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    backdrop-filter: blur(16px);
+    animation: popIn 0.18s ease;
+}
+
+.reactionPickerBtn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reactionPickerBtn:hover {
+    background: rgba(14,165,233,0.2);
+    transform: scale(1.18);
+}
+
+/* ========================
+   Network Quality Indicator
+======================== */
+.networkIndicator {
+    font-size: 0.7rem;
+    margin-left: 6px;
+    cursor: default;
+}
+
+/* ========================
    Control Bar
 ======================== */
 .buttonContainers {
@@ -571,7 +687,7 @@
 .controlsLeft {
     display: flex;
     align-items: center;
-    width: 130px;
+    width: 150px;
 }
 
 .controlsInner {
@@ -584,7 +700,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    width: 130px;
+    width: 150px;
 }
 
 .participantCount {
@@ -681,7 +797,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    width: 320px;
+    width: 340px;
     height: calc(100vh - 76px);
     background: #060f1e;
     border-left: 1px solid rgba(14,165,233,0.12);
@@ -740,12 +856,6 @@
     text-align: center;
 }
 
-.noMessages span:first-child {
-    font-size: 2rem;
-    opacity: 0.2;
-    margin-bottom: 0.25rem;
-}
-
 .chatMessage {
     background: rgba(14,165,233,0.05);
     border-radius: 10px;
@@ -758,13 +868,23 @@
     background: rgba(14,165,233,0.09);
 }
 
+.chatMessageHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.3rem;
+}
+
 .chatSender {
     font-size: 0.73rem;
     font-weight: 700;
     color: #38bdf8;
-    display: block;
-    margin-bottom: 0.3rem;
     letter-spacing: 0.2px;
+}
+
+.chatTimestamp {
+    font-size: 0.62rem;
+    color: rgba(139,154,176,0.4);
 }
 
 .chatText {
@@ -772,6 +892,39 @@
     color: #c9d8e8;
     word-break: break-word;
     line-height: 1.52;
+}
+
+/* Typing Indicator */
+.typingIndicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.4rem 1rem;
+    font-size: 0.73rem;
+    color: rgba(139,154,176,0.55);
+    flex-shrink: 0;
+}
+
+.typingDots {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+}
+
+.typingDots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(14,165,233,0.5);
+    animation: typingBounce 1.2s ease-in-out infinite;
+}
+
+.typingDots span:nth-child(2) { animation-delay: 0.15s; }
+.typingDots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
 }
 
 .chattingArea {
@@ -782,4 +935,79 @@
     border-top: 1px solid rgba(14,165,233,0.1);
     flex-shrink: 0;
     background: rgba(14,165,233,0.03);
+}
+
+/* ========================
+   Responsive
+======================== */
+@media (max-width: 768px) {
+    .remoteVideoWrap {
+        flex: 1 1 100%;
+        max-width: 100%;
+        min-width: unset;
+    }
+
+    .meetUserVideo {
+        width: 120px;
+        bottom: 84px;
+        right: 8px;
+    }
+
+    .meetUserVideoLarge {
+        width: 240px;
+        bottom: 84px;
+        right: 8px;
+    }
+
+    .chatRoom {
+        width: 100%;
+    }
+
+    .spotlightLayout {
+        flex-direction: column;
+    }
+
+    .thumbnailStrip {
+        width: 100%;
+        flex-direction: row;
+        height: 80px;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .thumbnailItem {
+        width: 120px;
+        min-width: 120px;
+    }
+
+    .controlsLeft { width: 80px; }
+    .controlsRight { width: 80px; }
+
+    .controlsInner { gap: 0.25rem; }
+
+    .controlBtn,
+    .controlBtnOff,
+    .controlBtnActive {
+        width: 40px !important;
+        height: 40px !important;
+    }
+
+    .controlBtnEnd {
+        width: 46px !important;
+        height: 46px !important;
+    }
+
+    .reactionPicker {
+        bottom: 80px;
+    }
+
+    .reactionPickerBtn {
+        width: 38px;
+        height: 38px;
+        font-size: 1.2rem;
+    }
+
+    .lobbyCard {
+        padding: 1.5rem;
+    }
 }

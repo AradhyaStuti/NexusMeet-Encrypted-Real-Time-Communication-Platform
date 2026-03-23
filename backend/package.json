@@ -1,24 +1,29 @@
 {
-  "name": "backend",
+  "name": "ushameetx-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "UshaMeetX video conferencing backend — Express, Socket.io, MongoDB",
+  "author": "Aradhya Stuti",
+  "main": "src/app.js",
   "type": "module",
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "prod": "pm2 src/app.js"
+    "test": "node --test tests/auth.test.js tests/logger.test.js"
   },
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "dotenv": "^16.0.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.3.1",
+    "helmet": "^8.1.0",
     "http-status": "^1.7.3",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.0.3",
     "nodemon": "^3.0.2",
-    "socket.io": "^4.7.3"
+    "socket.io": "^4.7.3",
+    "winston": "^3.19.0"
   }
 }

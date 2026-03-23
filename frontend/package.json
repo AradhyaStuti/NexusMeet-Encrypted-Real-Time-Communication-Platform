@@ -1,6 +1,9 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "ushameetx-frontend",
+  "version": "1.0.0",
+  "description": "UshaMeetX video conferencing frontend — React, WebRTC, Socket.io",
+  "author": "Aradhya Stuti",
+  "license": "ISC",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -11,6 +14,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.13.6",
+    "dompurify": "^3.3.3",
     "http-status": "^1.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -29,6 +33,11 @@
     "extends": [
       "react-app",
       "react-app/jest"
+    ]
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(axios|http-status)/)"
     ]
   },
   "browserslist": {

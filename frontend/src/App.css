@@ -867,3 +867,92 @@
   font-size: 0.88rem;
   color: rgba(139,154,176,0.5);
 }
+
+/* ════════════════════════
+   Responsive — Mobile
+════════════════════════ */
+@media (max-width: 768px) {
+  .landingPageContainer nav {
+    padding: 0.8rem 1.2rem;
+  }
+
+  .landingMainContainer {
+    flex-direction: column;
+    padding: 2.5rem 1.2rem;
+    gap: 2rem;
+    min-height: auto;
+    text-align: center;
+  }
+
+  .landingHeroText { max-width: 100%; }
+
+  .landingHeroText h1 {
+    font-size: 2rem;
+  }
+
+  .heroButtons {
+    justify-content: center;
+  }
+
+  .heroStats {
+    justify-content: center;
+  }
+
+  .landingHeroVisual {
+    display: none;
+  }
+
+  .featuresGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .landingFeatures {
+    padding: 3rem 1.2rem;
+  }
+
+  .landingCTA {
+    padding: 3rem 1.2rem;
+  }
+
+  .guestBar {
+    padding: 0.8rem 1.2rem;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .guestBarRow {
+    max-width: 100%;
+    min-width: unset;
+  }
+
+  .navBar {
+    padding: 0.7rem 1rem;
+  }
+
+  .dashboardContainer {
+    padding: 1.5rem 1rem;
+  }
+
+  .dashboardWelcome h1 {
+    font-size: 1.4rem;
+  }
+
+  .dashboardActions {
+    grid-template-columns: 1fr;
+  }
+
+  .historyContent {
+    padding: 1.5rem 1rem;
+  }
+
+  .historyCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  .navBarActions {
+    gap: 0.25rem;
+  }
+}
