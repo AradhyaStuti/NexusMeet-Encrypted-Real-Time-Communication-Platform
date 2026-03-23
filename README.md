@@ -1,8 +1,6 @@
 # UshaMeetX
 
-A video conferencing web app. WebRTC for peer-to-peer video, Socket.io for signaling and real-time stuff, React frontend, Node/Express backend with MongoDB. Has an SFU mode using mediasoup for scaling beyond 1-on-1 calls, and E2E encrypted chat.
-
-Basically you create a meeting, share the link, and people join - no downloads or accounts needed for guests. Has screen sharing, chat, reactions, all that.
+A video conferencing web app with WebRTC, Socket.io, React and Node.js. Has a hybrid P2P + SFU architecture (mediasoup) and E2E encrypted chat. Create a meeting, share the link, people join — no downloads or signups needed for guests.
 
 ![React](https://img.shields.io/badge/React_18-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![Node](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
@@ -13,39 +11,70 @@ Basically you create a meeting, share the link, and people join - no downloads o
 
 ---
 
-## What's in it
+## Features
 
-**Video & Media**
-- P2P video calls through WebRTC with multiple STUN servers. Also supports TURN if you configure it (helps behind corporate firewalls). If a connection drops, it tries an ICE restart automatically
-- **SFU mode** with mediasoup — when the server has mediasoup available, media gets routed through the server instead of P2P. This scales way better for group calls (P2P breaks down at 4-5 people because each peer has to send N-1 streams). Falls back to P2P gracefully if mediasoup isn't running
-- Screen sharing - full screen or just a window, handles the fallback when you stop sharing
-- Spotlight mode where you can pin someone's video full-screen and the rest show up in a thumbnail strip on the side
-- Per-participant volume sliders that show up on hover
+| Feature | How it works |
+|---|---|
+| HD Video Calls | WebRTC P2P with STUN/TURN. Auto ICE restart if connection drops |
+| SFU Mode | mediasoup routes media through server — scales to large group calls. Falls back to P2P if unavailable |
+| Screen Sharing | full screen or window, auto-fallback when you stop |
+| Spotlight | pin anyone full-screen, rest go to thumbnail strip |
+| Volume Control | per-participant slider on hover |
+| E2E Encrypted Chat | AES-256-GCM via Web Crypto API. Key stays in URL hash, server only sees ciphertext |
+| Live Chat | timestamps, auto-scroll, typing indicators, XSS sanitized with DOMPurify |
+| Reactions | 👍👏❤️😂🎉🔥 float up on screen for everyone |
+| Hand Raise | animated wave badge on your video tile |
+| Participant Names | real names + avatars on every tile, not just "Participant 1" |
+| Keyboard Shortcuts | M mute, V camera, C chat, H hand, E end call |
+| Network Quality | green/yellow/red dot from WebRTC RTT stats |
+| Guest Join | share a link, no account needed |
+| Meeting History | rejoin or delete past meetings |
+| Avatars | 16 emoji avatars, saved to localStorage |
+| Mobile Responsive | video grid, controls, chat, spotlight all adapt |
 
-**Collaboration stuff**
-- Real-time chat with timestamps and auto-scroll. Has a typing indicator so you can see when someone's writing. Messages go through DOMPurify to prevent XSS
-- **E2E encrypted chat** — messages are encrypted with AES-256-GCM before they leave your browser. The key lives in the URL hash fragment (the `#` part), which browsers never send to the server. So the server only ever sees ciphertext. A green lock badge shows up in the meeting when E2E is active
-- Emoji reactions (👍👏❤️😂🎉🔥) that float up on the screen, everyone sees them
-- Hand raise feature with a little wave animation on your video tile
-- Actual participant names and avatars show up on the video tiles instead of just "Participant 1"
+---
 
-**Other**
-- Keyboard shortcuts - M for mute, V for video, C for chat, H for hand raise, E to end the call. Disabled when you're typing in an input field obviously
-- Network quality indicator (green/yellow/red dot) calculated from WebRTC round trip time stats
-- Guest join via link, no account required. Or create an account to keep meeting history
-- Meeting history page where you can rejoin or delete old meetings
-- 16 emoji avatars you can pick from, saved to localStorage
-- Mobile responsive - the video grid, controls, chat panel and spotlight all adapt
+## Tech Stack
 
-## Tech stack
+### Frontend
 
-**Frontend** - React 18 with React Router v6, Material UI for components with a custom dark theme, Socket.io client for real-time events, mediasoup-client for SFU connections, WebRTC API using the modern `addTrack`/`replaceTrack` (not the deprecated `addStream`), CSS Modules for scoped styles, Axios with request/response interceptors for JWT, DOMPurify for XSS, Web Crypto API for E2E encryption
+| Tech | What it does |
+|---|---|
+| React 18 | SPA with React Router v6 |
+| Material UI v5 | component library, custom dark theme |
+| mediasoup-client | SFU transport/producer/consumer management |
+| WebRTC API | `addTrack`/`replaceTrack` (not the deprecated `addStream`) |
+| Socket.io Client | signaling, chat, reactions, typing |
+| Axios | HTTP client with JWT interceptors |
+| DOMPurify | XSS sanitization on chat |
+| Web Crypto API | AES-256-GCM for E2E chat encryption |
+| CSS Modules | scoped responsive styles |
 
-**Backend** - Express with Helmet for security headers, JWT authentication with bcrypt for password hashing, rate limiting on auth endpoints (30 req per 15 min), mediasoup SFU with worker pool and per-room routers, Socket.io handling signaling + SFU events + chat + reactions + typing + hand raise. Socket messages are rate limited too (10 per 10 sec per client). MongoDB with Mongoose, compound indexes on the meeting model. Winston for structured logging with file rotation. Graceful shutdown handler for SIGTERM/SIGINT
+### Backend
 
-**Testing & CI** - 32 tests total. Backend uses node's built-in test runner for JWT, input validation, rate limiting logic and the logger. Frontend uses Jest + React Testing Library for the landing page, error boundary and avatar picker. GitHub Actions runs everything on push/PR - syntax checks, tests, production build
+| Tech | What it does |
+|---|---|
+| Express | REST API + middleware stack |
+| mediasoup | SFU — worker pool, per-room routers, transports |
+| Socket.io | signaling (P2P + SFU), chat, reactions, typing, hand raise |
+| MongoDB + Mongoose | users, meeting history, compound indexes |
+| JWT | stateless auth with signed tokens + expiry |
+| bcrypt | password hashing (10 rounds) |
+| Helmet | security headers |
+| express-rate-limit | 30 req/15min on auth, 10 msg/10sec on chat sockets |
+| Winston | structured logging, file rotation, JSON output |
 
-## Getting started
+### Testing & CI
+
+| What | Details |
+|---|---|
+| Backend tests | 14 tests — JWT, input validation, rate limiting, logger (node:test) |
+| Frontend tests | 18 tests — landing page, error boundary, avatar picker (Jest + RTL) |
+| CI pipeline | GitHub Actions — syntax check, test, build on every push/PR |
+
+---
+
+## Getting Started
 
 ```bash
 git clone https://github.com/AradhyaStuti/UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform.git
@@ -55,84 +84,95 @@ cd UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform
 Backend:
 ```bash
 cd backend
-cp .env.example .env     # edit this with your mongo URI and a JWT secret
+cp .env.example .env     # fill in MONGO_URI, JWT_SECRET
 npm install
-npm start                 # runs on localhost:8000
+npm start                 # localhost:8000
 ```
 
-Frontend (separate terminal):
+Frontend (new terminal):
 ```bash
 cd frontend
 npm install
-npm start                 # runs on localhost:3000
+npm start                 # localhost:3000
 ```
 
-The `.env.example` has everything you need. Main things are `MONGO_URI`, `JWT_SECRET`, and `CORS_ORIGINS`. If you have a TURN server you can add `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` too but it's not required for local dev.
+Check `.env.example` for all the env vars. The main ones are `MONGO_URI`, `JWT_SECRET`, `CORS_ORIGINS`. TURN and SFU vars are optional for local dev.
 
-## Architecture notes
+---
 
-### SFU (Selective Forwarding Unit)
+## Architecture
 
-The app has two modes for video: P2P and SFU. On startup the backend tries to initialize mediasoup workers (one per CPU core, capped at 4). If that works, it tells the frontend via `GET /api/v1/sfu-status` and the client uses mediasoup-client instead of raw RTCPeerConnection.
+### How the video works (P2P vs SFU)
 
-In SFU mode each participant creates a send transport (to produce their audio/video) and a receive transport (to consume everyone else's). The server's mediasoup router handles forwarding — so each person only uploads one stream regardless of how many people are in the call. Way more scalable than P2P mesh where everyone connects to everyone.
+The app runs in two modes depending on what the server can do:
 
-If mediasoup isn't available (missing native deps, wrong platform, whatever) the server just logs a warning and everything falls back to P2P mode. The frontend checks `sfu-status` before joining and picks the right path.
+| Mode | When | How |
+|---|---|---|
+| **SFU** | mediasoup workers initialized successfully | each person uploads one stream to server, server forwards to everyone else. Scales to big rooms |
+| **P2P** | mediasoup not available (fallback) | direct peer-to-peer connections. Works great for 2-3 people, gets heavy at 4-5 |
 
-Each meeting room gets its own mediasoup Router. When the last person leaves, the router gets closed and garbage collected.
+On startup the backend tries to spin up mediasoup workers (one per CPU, capped at 4). Frontend checks `/api/v1/sfu-status` before joining and picks the right path. If SFU init fails for whatever reason — missing deps, no UDP ports, wrong platform — it just logs a warning and falls back to P2P. Nothing breaks.
 
-### E2E Encryption
+Each meeting room gets its own mediasoup Router. When the last person leaves, the router closes and gets garbage collected. A purple "SFU" badge shows up in the meeting controls when SFU is active.
 
-Chat messages are encrypted client-side using AES-256-GCM via the Web Crypto API. The encryption key is generated when someone creates a meeting and stored in the URL hash (`#`). The hash fragment is never sent to the server by browsers — it stays entirely client-side. When you share the meeting link, recipients get the key automatically as part of the URL.
+### How E2E encryption works
 
-The server only sees base64 ciphertext. It can't read any messages. A green "E2E" badge shows up in the control bar when encryption is active.
+| Step | What happens |
+|---|---|
+| Room created | browser generates AES-256-GCM key, puts it in URL hash (`#key`) |
+| Link shared | recipient gets the key as part of the URL |
+| Message sent | encrypted client-side before hitting the socket |
+| Server receives | only sees base64 ciphertext, can't read anything |
+| Message received | other clients decrypt using key from their URL hash |
 
-This doesn't cover the video/audio streams — those are already encrypted by WebRTC itself (SRTP). In SFU mode the server can technically see the media since it's the SRTP endpoint, but that's how every SFU works (Google Meet, Zoom, Teams all have this same tradeoff).
+The URL hash fragment is never sent to the server by browsers — that's by design in the HTTP spec. So the server genuinely cannot read the messages. A green lock "E2E" badge shows up in the control bar when it's active.
 
-### Everything else
+Video/audio streams are already encrypted by WebRTC (SRTP). In SFU mode the server is the SRTP endpoint so it could technically access media — but that's how every SFU works (Google Meet, Zoom, Teams all have this same tradeoff).
 
-Rooms are tracked in a `Map<path, Map<socketId, {username, avatar}>>` with a reverse `Map<socketId, path>` so looking up which room a socket belongs to is O(1) instead of iterating everything. Chat history is kept in memory capped at 200 messages per room, and rooms get cleaned up automatically when the last person disconnects.
+### Other internals
 
-The ICE config (STUN/TURN servers) is served from `/api/v1/ice-config` rather than hardcoded in the frontend, so TURN credentials don't end up in client code.
+Rooms tracked in `Map<path, Map<socketId, {username, avatar}>>` with a reverse `Map<socketId, path>` for O(1) lookups. Chat capped at 200 msgs per room, empty rooms auto-cleaned. ICE config served from `/api/v1/ice-config` so TURN creds stay out of frontend code. WebRTC connections live in a `useRef` (not module-level). JWT auto-attached via axios interceptors. Whole app wrapped in Error Boundary.
 
-On the frontend, the WebRTC peer connections live in a `useRef` - I had them as a module-level variable before and it was causing weird shared state issues across re-renders. Auth is JWT based with axios interceptors that auto-attach the token and clear it on 401. The whole app is wrapped in an Error Boundary.
+---
 
-## Running tests
+## Tests
 
 ```bash
 cd backend && npm test      # 14 tests
 cd frontend && npm test     # 18 tests
 ```
 
-There's a CI pipeline at `.github/workflows/ci.yml` that runs on every push and PR to main.
+CI at `.github/workflows/ci.yml` runs on every push/PR to main.
 
-## Project structure
+---
+
+## Project Structure
 
 ```
 backend/
   src/
     app.js
     controllers/
-      user.controller.js      # JWT auth, requireAuth middleware, history CRUD
-      socketManager.js         # P2P signaling, SFU events, chat, reactions, rate limiting
+      user.controller.js         # JWT auth, requireAuth, history
+      socketManager.js            # P2P + SFU signaling, chat, reactions
     models/
       user.model.js
       meeting.model.js
-    routes/users.routes.js
     sfu/
-      config.js                # mediasoup codec + transport config
-      worker.js                # worker pool, round-robin assignment
-      room.js                  # SfuRoom class — router, transports, producers, consumers
+      config.js                   # mediasoup codec + transport config
+      worker.js                   # worker pool, round-robin
+      room.js                     # SfuRoom — router, transports, producers, consumers
+    routes/users.routes.js
     utils/
-      jwt.js
-      logger.js
+      jwt.js                      # sign/verify
+      logger.js                   # winston
   tests/
     auth.test.js
     logger.test.js
 
 frontend/src/
   pages/
-    VideoMeet.jsx              # main meeting room — SFU + P2P + E2E chat
+    VideoMeet.jsx                 # meeting room — SFU + P2P + E2E
     landing.jsx
     authentication.jsx
     home.jsx
@@ -143,35 +183,72 @@ frontend/src/
     UshaMeetXLogo.jsx
   contexts/AuthContext.jsx
   utils/
-    sfuClient.js               # mediasoup-client Device wrapper
-    encryption.js              # AES-256-GCM encrypt/decrypt via Web Crypto API
+    sfuClient.js                  # mediasoup-client wrapper
+    encryption.js                 # AES-256-GCM via Web Crypto
   styles/videoComponent.module.css
 
 .github/workflows/ci.yml
 ```
 
-## API endpoints
+---
 
-| Method | Endpoint | Auth | |
+## API
+
+| Method | Endpoint | Auth | What |
 |---|---|---|---|
-| POST | `/api/v1/users/register` | no | create account |
-| POST | `/api/v1/users/login` | no | returns JWT |
-| GET | `/api/v1/users/get_all_activity` | yes | get meeting history |
-| POST | `/api/v1/users/add_to_activity` | yes | save a meeting |
-| DELETE | `/api/v1/users/delete_from_activity` | yes | delete a meeting |
-| GET | `/api/v1/ice-config` | no | STUN/TURN config |
-| GET | `/api/v1/sfu-status` | no | whether SFU is available |
-| GET | `/health` | no | server status + SFU state |
+| POST | `/api/v1/users/register` | — | create account |
+| POST | `/api/v1/users/login` | — | get JWT |
+| GET | `/api/v1/users/get_all_activity` | JWT | meeting history |
+| POST | `/api/v1/users/add_to_activity` | JWT | save meeting |
+| DELETE | `/api/v1/users/delete_from_activity` | JWT | delete meeting |
+| GET | `/api/v1/ice-config` | — | STUN/TURN servers |
+| GET | `/api/v1/sfu-status` | — | is SFU available |
+| GET | `/health` | — | server status + SFU state |
 
-Socket.io events: `join-call`, `user-joined`, `user-left`, `signal`, `chat-message`, `hand-raise`, `reaction`, `typing`, `get-rtp-capabilities`, `create-send-transport`, `create-recv-transport`, `connect-transport`, `produce`, `consume`, `consumer-resume`, `get-producers`, `new-producer`, `producer-closed`
+### Socket Events
+
+| Event | Direction | What |
+|---|---|---|
+| `join-call` | client → server | join room with name + avatar |
+| `user-joined` | server → client | full participant list |
+| `user-left` | server → client | someone disconnected |
+| `signal` | both | P2P SDP/ICE exchange |
+| `chat-message` | both | encrypted chat |
+| `hand-raise` | both | raise/lower hand |
+| `reaction` | both | emoji reaction |
+| `typing` | both | typing indicator |
+| `get-rtp-capabilities` | client → server | SFU: get router caps |
+| `create-send-transport` | client → server | SFU: create upload transport |
+| `create-recv-transport` | client → server | SFU: create download transport |
+| `connect-transport` | client → server | SFU: DTLS connect |
+| `produce` | client → server | SFU: start sending media |
+| `consume` | client → server | SFU: start receiving media |
+| `new-producer` | server → client | SFU: someone started a track |
+| `producer-closed` | server → client | SFU: someone stopped a track |
+
+---
 
 ## Deployment
 
-Frontend goes on Vercel or Netlify - just run `npm run build` and point it at the `build/` folder.
+Frontend → Vercel or Netlify, just `npm run build` and deploy `build/`
 
-Backend goes on Render or similar - set the root directory to `backend`, start command is `node src/app.js`. Make sure to set `MONGO_URI`, `JWT_SECRET`, `CORS_ORIGINS` in the env vars. For SFU to work the server needs UDP ports (set `RTC_MIN_PORT`, `RTC_MAX_PORT`, `MEDIASOUP_ANNOUNCED_IP`). On platforms that don't support UDP (like Render free tier), it'll just fall back to P2P and everything still works.
+Backend → Render or any VPS, start command is `node src/app.js`
 
-Then update `frontend/src/environment.js` with whatever URL your backend ends up at.
+| Env var | Required | What |
+|---|---|---|
+| `MONGO_URI` | yes | MongoDB connection string |
+| `JWT_SECRET` | yes | random string for signing tokens |
+| `CORS_ORIGINS` | no | allowed frontend URLs (comma-separated). Allows all if not set |
+| `TURN_URL` | no | TURN server for NAT traversal |
+| `TURN_USERNAME` | no | TURN auth |
+| `TURN_CREDENTIAL` | no | TURN auth |
+| `RTC_MIN_PORT` | no | mediasoup UDP port range start (default 10000) |
+| `RTC_MAX_PORT` | no | mediasoup UDP port range end (default 10100) |
+| `MEDIASOUP_ANNOUNCED_IP` | no | public IP for SFU (needed on VPS) |
+
+On Render free tier, SFU won't have UDP ports so it falls back to P2P automatically. Everything still works.
+
+Update `frontend/src/environment.js` with your backend URL.
 
 ---
 
