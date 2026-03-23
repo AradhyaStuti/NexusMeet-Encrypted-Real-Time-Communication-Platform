@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -7,9 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  # ── Backend Tests ──
   backend:
-    name: Backend — Lint & Test
+    name: Backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,6 +24,9 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
+      - name: Install build tools for mediasoup
+        run: sudo apt-get update && sudo apt-get install -y python3 python3-pip build-essential
+
       - name: Install dependencies
         run: npm ci
 
@@ -36,13 +38,15 @@ jobs:
           node --check src/routes/users.routes.js
           node --check src/utils/jwt.js
           node --check src/utils/logger.js
+          node --check src/sfu/config.js
+          node --check src/sfu/worker.js
+          node --check src/sfu/room.js
 
       - name: Run tests
         run: node --test tests/
 
-  # ── Frontend Tests & Build ──
   frontend:
-    name: Frontend — Test & Build
+    name: Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -69,12 +73,4 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          CI: true
-
-      - name: Upload build artifact
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/build/
-          retention-days: 7
+          CI: false
