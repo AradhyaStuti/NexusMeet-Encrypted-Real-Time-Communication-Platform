@@ -11,6 +11,7 @@ import rateLimit from "express-rate-limit";
 import { connectToSocket } from "./controllers/socketManager.js";
 import userRoutes from "./routes/users.routes.js";
 import logger from "./utils/logger.js";
+import { initWorkers, isSfuAvailable } from "./sfu/worker.js";
 
 const app = express();
 const server = createServer(app);
@@ -89,13 +90,19 @@ app.get("/api/v1/ice-config", (_req, res) => {
     res.json({ iceServers });
 });
 
+// ── SFU status — frontend checks this to decide P2P vs SFU ──
+app.get("/api/v1/sfu-status", (_req, res) => {
+    res.json({ enabled: isSfuAvailable() });
+});
+
 // ── Health check ──
 app.get("/health", (_req, res) => {
     res.json({
         status: "ok",
         uptime: Math.floor(process.uptime()),
         mongo: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-        version: "1.0.0",
+        sfu: isSfuAvailable(),
+        version: "2.0.0",
     });
 });
 
@@ -124,8 +131,11 @@ const start = async () => {
         process.exit(1);
     }
 
+    // Initialize mediasoup SFU workers (gracefully falls back to P2P if unavailable)
+    await initWorkers();
+
     server.listen(PORT, () => {
-        logger.info(`Server listening on port ${PORT}`);
+        logger.info(`Server listening on port ${PORT}`, { sfu: isSfuAvailable() });
     });
 };
 

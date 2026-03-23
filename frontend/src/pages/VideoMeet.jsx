@@ -22,6 +22,9 @@ import DOMPurify from 'dompurify'
 import server from '../environment'
 import UshaMeetXLogo from '../components/UshaMeetXLogo'
 import { getAvatar } from '../components/AvatarPicker'
+import { SfuClient } from '../utils/sfuClient'
+import { getOrCreateRoomKey, encryptMessage, decryptMessage } from '../utils/encryption'
+import LockIcon from '@mui/icons-material/Lock'
 
 const server_url = server
 
@@ -42,9 +45,12 @@ export default function VideoMeetComponent() {
     const socketRef = useRef(null)
     const socketIdRef = useRef(null)
     const localVideoref = useRef(null)
-    const connectionsRef = useRef({})          // RTCPeerConnection map
+    const connectionsRef = useRef({})          // RTCPeerConnection map (P2P mode)
     const chatEndRef = useRef(null)            // auto-scroll chat
     const iceConfigRef = useRef(DEFAULT_ICE_CONFIG) // dynamic ICE with TURN
+    const sfuClientRef = useRef(null)          // SfuClient instance (SFU mode)
+    const sfuModeRef = useRef(false)           // true if SFU is active
+    const e2eKeyRef = useRef(null)             // E2E encryption key for chat
 
     const [videoAvailable, setVideoAvailable] = useState(true)
     const [audioAvailable, setAudioAvailable] = useState(true)
@@ -85,6 +91,8 @@ export default function VideoMeetComponent() {
 
     // ── Network quality ──
     const [networkQuality, setNetworkQuality] = useState('good') // good | fair | poor
+    const [e2eEnabled, setE2eEnabled] = useState(false)
+    const [sfuActive, setSfuActive] = useState(false)
 
     // Refs for volume sync
     const remoteVideoElems = useRef({})
@@ -160,7 +168,13 @@ export default function VideoMeetComponent() {
             }
         } catch { }
 
-        // Close all peer connections
+        // Close SFU client if active
+        if (sfuClientRef.current) {
+            try { sfuClientRef.current.close() } catch { }
+            sfuClientRef.current = null
+        }
+
+        // Close all P2P peer connections
         for (const id in connectionsRef.current) {
             try { connectionsRef.current[id].close() } catch { }
         }
@@ -218,15 +232,28 @@ export default function VideoMeetComponent() {
     }, [video, audio]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const getMedia = async () => {
-        // Fetch ICE/TURN config from server before connecting
+        // Fetch ICE/TURN config from server
         try {
             const res = await fetch(`${server_url}/api/v1/ice-config`)
             const data = await res.json()
-            if (data.iceServers) {
-                iceConfigRef.current = { iceServers: data.iceServers }
-            }
+            if (data.iceServers) iceConfigRef.current = { iceServers: data.iceServers }
+        } catch { }
+
+        // Check if SFU is available
+        try {
+            const res = await fetch(`${server_url}/api/v1/sfu-status`)
+            const data = await res.json()
+            sfuModeRef.current = data.enabled === true
+            setSfuActive(data.enabled === true)
+        } catch { }
+
+        // Initialize E2E encryption key
+        try {
+            const { key } = await getOrCreateRoomKey()
+            e2eKeyRef.current = key
+            setE2eEnabled(true)
         } catch {
-            // Fallback to default STUN-only config
+            // E2E not available (e.g. no Web Crypto API)
         }
 
         setVideo(videoAvailable)
@@ -420,112 +447,166 @@ export default function VideoMeetComponent() {
                 })
             })
 
+            // ═══ SFU event listeners ═══
+            if (sfuModeRef.current) {
+                // When a new producer appears in the room, consume it
+                socketRef.current.on('new-producer', async ({ producerId, socketId: prodSocketId, kind }) => {
+                    if (!sfuClientRef.current) return
+                    try {
+                        const consumer = await sfuClientRef.current.consume(producerId)
+                        if (!consumer) return
+                        addRemoteTrack(prodSocketId, consumer.track, consumer.kind)
+                    } catch (err) {
+                        console.log('[SFU] consume error:', err)
+                    }
+                })
+
+                socketRef.current.on('producer-closed', ({ producerId }) => {
+                    // A producer was closed — the consumer auto-closes via mediasoup events
+                    // Video removal happens via user-left
+                })
+            }
+
             // ── User joined — receives full participant list ──
-            socketRef.current.on('user-joined', (id, participants) => {
+            socketRef.current.on('user-joined', async (id, participants) => {
                 // Update participant name map
                 participants.forEach(p => {
                     participantNames.current[p.socketId] = { username: p.username, avatar: p.avatar }
                 })
 
-                participants.forEach((participant) => {
-                    const socketListId = participant.socketId
-                    if (socketListId === socketIdRef.current) return
+                // ═══ SFU MODE ═══
+                if (sfuModeRef.current && id === socketIdRef.current) {
+                    try {
+                        // Initialize SFU client
+                        sfuClientRef.current = new SfuClient(socketRef.current)
+                        await sfuClientRef.current.load()
+                        await sfuClientRef.current.createSendTransport()
+                        await sfuClientRef.current.createRecvTransport()
 
-                    // Don't recreate existing connections
-                    if (connectionsRef.current[socketListId]) return
-
-                    connectionsRef.current[socketListId] = new RTCPeerConnection(iceConfigRef.current)
-
-                    connectionsRef.current[socketListId].onicecandidate = (event) => {
-                        if (event.candidate != null) {
-                            socketRef.current?.emit('signal', socketListId, JSON.stringify({ ice: event.candidate }))
+                        // Produce our local tracks
+                        if (window.localStream) {
+                            for (const track of window.localStream.getTracks()) {
+                                await sfuClientRef.current.produce(track)
+                            }
                         }
-                    }
 
-                    // ── ICE connection state — detect drops ──
-                    connectionsRef.current[socketListId].oniceconnectionstatechange = () => {
-                        const state = connectionsRef.current[socketListId]?.iceConnectionState
-                        if (state === 'failed') {
-                            // Attempt ICE restart
-                            connectionsRef.current[socketListId]?.createOffer({ iceRestart: true })
-                                .then(desc => {
-                                    connectionsRef.current[socketListId]?.setLocalDescription(desc)
-                                        .then(() => socketRef.current?.emit('signal', socketListId, JSON.stringify({ sdp: connectionsRef.current[socketListId].localDescription })))
-                                })
-                                .catch(() => { })
+                        // Consume existing producers in the room
+                        const existingProducers = await sfuClientRef.current.getExistingProducers()
+                        for (const { producerId, socketId: prodSocketId, kind } of existingProducers) {
+                            const consumer = await sfuClientRef.current.consume(producerId)
+                            if (consumer) addRemoteTrack(prodSocketId, consumer.track, consumer.kind)
                         }
+                    } catch (err) {
+                        console.log('[SFU] init failed, falling back to P2P:', err.message)
+                        sfuModeRef.current = false
+                        setSfuActive(false)
                     }
+                }
 
-                    connectionsRef.current[socketListId].ontrack = (event) => {
-                        const stream = event.streams[0]
-                        if (!stream) return
+                // ═══ P2P MODE (fallback) ═══
+                if (!sfuModeRef.current) {
+                    participants.forEach((participant) => {
+                        const socketListId = participant.socketId
+                        if (socketListId === socketIdRef.current) return
+                        if (connectionsRef.current[socketListId]) return
 
-                        const existing = videoRef.current.find(v => v.socketId === socketListId)
-                        if (existing) {
-                            setVideos(videos => {
-                                const updated = videos.map(v =>
-                                    v.socketId === socketListId ? { ...v, stream } : v
-                                )
-                                videoRef.current = updated
-                                return updated
+                        connectionsRef.current[socketListId] = new RTCPeerConnection(iceConfigRef.current)
+
+                        connectionsRef.current[socketListId].onicecandidate = (event) => {
+                            if (event.candidate != null) {
+                                socketRef.current?.emit('signal', socketListId, JSON.stringify({ ice: event.candidate }))
+                            }
+                        }
+
+                        connectionsRef.current[socketListId].oniceconnectionstatechange = () => {
+                            const state = connectionsRef.current[socketListId]?.iceConnectionState
+                            if (state === 'failed') {
+                                connectionsRef.current[socketListId]?.createOffer({ iceRestart: true })
+                                    .then(desc => {
+                                        connectionsRef.current[socketListId]?.setLocalDescription(desc)
+                                            .then(() => socketRef.current?.emit('signal', socketListId, JSON.stringify({ sdp: connectionsRef.current[socketListId].localDescription })))
+                                    })
+                                    .catch(() => { })
+                            }
+                        }
+
+                        connectionsRef.current[socketListId].ontrack = (event) => {
+                            const stream = event.streams[0]
+                            if (!stream) return
+                            addRemoteStream(socketListId, stream)
+                        }
+
+                        connectionsRef.current[socketListId].onaddstream = (event) => {
+                            addRemoteStream(socketListId, event.stream)
+                        }
+
+                        if (window.localStream) {
+                            window.localStream.getTracks().forEach(track => {
+                                connectionsRef.current[socketListId].addTrack(track, window.localStream)
                             })
                         } else {
-                            const newVideo = { socketId: socketListId, stream, autoplay: true, playsinline: true }
-                            setVideos(videos => {
-                                const updated = [...videos, newVideo]
-                                videoRef.current = updated
-                                return updated
+                            const blackSilence = (...args) => new MediaStream([black(...args), silence()])
+                            window.localStream = blackSilence()
+                            window.localStream.getTracks().forEach(track => {
+                                connectionsRef.current[socketListId].addTrack(track, window.localStream)
                             })
                         }
-                    }
+                    })
 
-                    // Also keep onaddstream for backward compat with older browsers
-                    connectionsRef.current[socketListId].onaddstream = (event) => {
-                        const existing = videoRef.current.find(v => v.socketId === socketListId)
-                        if (existing) {
-                            setVideos(videos => {
-                                const updated = videos.map(v =>
-                                    v.socketId === socketListId ? { ...v, stream: event.stream } : v
-                                )
-                                videoRef.current = updated
-                                return updated
-                            })
-                        } else {
-                            const newVideo = { socketId: socketListId, stream: event.stream, autoplay: true, playsinline: true }
-                            setVideos(videos => {
-                                const updated = [...videos, newVideo]
-                                videoRef.current = updated
-                                return updated
+                    if (id === socketIdRef.current) {
+                        for (const id2 in connectionsRef.current) {
+                            if (id2 === socketIdRef.current) continue
+                            connectionsRef.current[id2].createOffer().then((description) => {
+                                connectionsRef.current[id2].setLocalDescription(description)
+                                    .then(() => socketRef.current?.emit('signal', id2, JSON.stringify({ sdp: connectionsRef.current[id2].localDescription })))
+                                    .catch(e => console.log(e))
                             })
                         }
-                    }
-
-                    if (window.localStream) {
-                        window.localStream.getTracks().forEach(track => {
-                            connectionsRef.current[socketListId].addTrack(track, window.localStream)
-                        })
-                    } else {
-                        const blackSilence = (...args) => new MediaStream([black(...args), silence()])
-                        window.localStream = blackSilence()
-                        window.localStream.getTracks().forEach(track => {
-                            connectionsRef.current[socketListId].addTrack(track, window.localStream)
-                        })
-                    }
-                })
-
-                // Create offers if WE are the one who just joined
-                if (id === socketIdRef.current) {
-                    for (const id2 in connectionsRef.current) {
-                        if (id2 === socketIdRef.current) continue
-                        connectionsRef.current[id2].createOffer().then((description) => {
-                            connectionsRef.current[id2].setLocalDescription(description)
-                                .then(() => socketRef.current?.emit('signal', id2, JSON.stringify({ sdp: connectionsRef.current[id2].localDescription })))
-                                .catch(e => console.log(e))
-                        })
                     }
                 }
             })
         })
+    }
+
+    // ── Helper: add a remote stream (P2P mode) ──
+    const addRemoteStream = (socketId, stream) => {
+        const existing = videoRef.current.find(v => v.socketId === socketId)
+        if (existing) {
+            setVideos(videos => {
+                const updated = videos.map(v => v.socketId === socketId ? { ...v, stream } : v)
+                videoRef.current = updated
+                return updated
+            })
+        } else {
+            const newVideo = { socketId, stream, autoplay: true, playsinline: true }
+            setVideos(videos => {
+                const updated = [...videos, newVideo]
+                videoRef.current = updated
+                return updated
+            })
+        }
+    }
+
+    // ── Helper: add a remote track (SFU mode — builds stream per participant) ──
+    const addRemoteTrack = (socketId, track, kind) => {
+        const existing = videoRef.current.find(v => v.socketId === socketId)
+        if (existing) {
+            // add track to existing stream
+            existing.stream.addTrack(track)
+            setVideos(videos => {
+                const updated = videos.map(v => v.socketId === socketId ? { ...v, stream: existing.stream } : v)
+                videoRef.current = updated
+                return updated
+            })
+        } else {
+            const stream = new MediaStream([track])
+            const newVideo = { socketId, stream, autoplay: true, playsinline: true }
+            setVideos(videos => {
+                const updated = [...videos, newVideo]
+                videoRef.current = updated
+                return updated
+            })
+        }
     }
 
     const silence = () => {
@@ -558,18 +639,27 @@ export default function VideoMeetComponent() {
         window.location.href = "/"
     }
 
-    const addMessage = (data, sender, socketIdSender, timestamp) => {
-        setMessages((prev) => [...prev, { sender, data, timestamp }])
+    const addMessage = async (data, sender, socketIdSender, timestamp) => {
+        // Decrypt if E2E is enabled
+        let plaintext = data
+        if (e2eKeyRef.current) {
+            try { plaintext = await decryptMessage(data, e2eKeyRef.current) } catch { plaintext = data }
+        }
+        setMessages((prev) => [...prev, { sender, data: plaintext, timestamp }])
         if (socketIdSender !== socketIdRef.current) {
             setNewMessages((prev) => prev + 1)
         }
     }
 
-    const sendMessage = () => {
+    const sendMessage = async () => {
         if (!message.trim()) return
-        socketRef.current?.emit('chat-message', message, username)
+        let payload = message
+        // Encrypt if E2E is enabled
+        if (e2eKeyRef.current) {
+            try { payload = await encryptMessage(message, e2eKeyRef.current) } catch { }
+        }
+        socketRef.current?.emit('chat-message', payload, username)
         setMessage("")
-        // Clear typing indicator
         socketRef.current?.emit('typing', false)
     }
 
@@ -1019,6 +1109,16 @@ export default function VideoMeetComponent() {
                             <Tooltip title={`Network: ${networkQuality}`} arrow>
                                 <span className={styles.networkIndicator}>{networkIcon}</span>
                             </Tooltip>
+                            {e2eEnabled && (
+                                <Tooltip title="Chat is end-to-end encrypted" arrow>
+                                    <span className={styles.e2eBadge}><LockIcon sx={{ fontSize: '0.7rem' }} /> E2E</span>
+                                </Tooltip>
+                            )}
+                            {sfuActive && (
+                                <Tooltip title="SFU mode — media routed via server for scalability" arrow>
+                                    <span className={styles.sfuBadge}>SFU</span>
+                                </Tooltip>
+                            )}
                         </div>
 
                         {/* Center: main controls */}

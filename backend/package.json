@@ -21,6 +21,7 @@
     "helmet": "^8.1.0",
     "http-status": "^1.7.3",
     "jsonwebtoken": "^9.0.3",
+    "mediasoup": "^3.19.18",
     "mongoose": "^8.0.3",
     "nodemon": "^3.0.2",
     "socket.io": "^4.7.3",

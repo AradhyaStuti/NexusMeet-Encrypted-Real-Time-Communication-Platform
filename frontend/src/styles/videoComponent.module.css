@@ -664,6 +664,33 @@
     cursor: default;
 }
 
+.e2eBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #34d399;
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.25);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    letter-spacing: 0.3px;
+}
+
+.sfuBadge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #a78bfa;
+    background: rgba(139,92,246,0.12);
+    border: 1px solid rgba(139,92,246,0.25);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    letter-spacing: 0.3px;
+}
+
 /* ========================
    Control Bar
 ======================== */
