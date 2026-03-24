@@ -473,7 +473,7 @@ export default function VideoMeetComponent() {
                     </div>
 
                     {showModal && (
-                        <aside className={styles.chatRoom} aria-label="In-meeting chat" role="complementary">
+                        <aside className={styles.chatRoom} aria-label="In-meeting chat">
                             <div className={styles.chatHeader}>
                                 <span className={styles.chatTitle}>In-Meeting Chat</span>
                                 <IconButton onClick={() => setModal(false)} size="small" sx={{ color: 'rgba(255,255,255,0.6)' }}><CloseIcon fontSize="small" /></IconButton>

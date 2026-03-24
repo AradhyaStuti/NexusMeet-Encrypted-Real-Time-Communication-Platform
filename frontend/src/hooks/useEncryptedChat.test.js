@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react'
 import { useEncryptedChat } from '../hooks/useEncryptedChat'
+import { getOrCreateRoomKey, encryptMessage, decryptMessage } from '../utils/encryption'
 
 // Mock encryption utilities
 jest.mock('../utils/encryption', () => ({
@@ -7,8 +8,6 @@ jest.mock('../utils/encryption', () => ({
     encryptMessage: jest.fn().mockResolvedValue('encrypted-payload'),
     decryptMessage: jest.fn().mockImplementation((data) => Promise.resolve(`decrypted:${data}`)),
 }))
-
-import { getOrCreateRoomKey, encryptMessage, decryptMessage } from '../utils/encryption'
 
 const makeRefs = () => ({
     socketRef: { current: { emit: jest.fn() } },

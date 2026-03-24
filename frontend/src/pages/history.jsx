@@ -25,7 +25,7 @@ function History() {
             } catch { }
         }
         fetchHistory()
-    }, [])
+    }, [getHistoryOfUser])
 
     const formatDate = (dateString) => {
         const d = new Date(dateString)

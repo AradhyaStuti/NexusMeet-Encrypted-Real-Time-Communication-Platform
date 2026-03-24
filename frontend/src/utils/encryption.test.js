@@ -1,12 +1,6 @@
 /**
  * Tests for E2E encryption utilities (AES-256-GCM)
  */
-
-// Polyfill TextEncoder/TextDecoder — not available in jsdom
-const { TextEncoder, TextDecoder } = require('util')
-global.TextEncoder = TextEncoder
-global.TextDecoder = TextDecoder
-
 import { generateRoomKey, encryptMessage, decryptMessage, getOrCreateRoomKey } from '../utils/encryption'
 
 const MOCK_KEY = { type: 'secret' }
@@ -29,7 +23,7 @@ beforeEach(() => {
         subtle,
         getRandomValues: jest.fn(arr => { arr.set(MOCK_IV.slice(0, arr.length)); return arr }),
     }
-    Object.defineProperty(globalThis, 'crypto', { configurable: true, value: mockCrypto })
+    Object.defineProperty(global, 'crypto', { configurable: true, value: mockCrypto })
 })
 
 // ── generateRoomKey ──────────────────────────────────────────────────────────

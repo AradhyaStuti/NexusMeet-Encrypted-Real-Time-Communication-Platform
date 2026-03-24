@@ -207,7 +207,7 @@ describe('VideoMeet — controls', () => {
         renderMeet()
         fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Carol' } })
         fireEvent.click(screen.getByText('Join Meeting'))
-        await waitFor(() => screen.getByText('Waiting for others to join...'))
+        await screen.findByText('Waiting for others to join...')
     }
 
     it('copy invite link calls copyMeetingLink', async () => {
@@ -251,7 +251,7 @@ describe('VideoMeet — chat panel', () => {
         renderMeet()
         fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Dave' } })
         fireEvent.click(screen.getByText('Join Meeting'))
-        await waitFor(() => screen.getByText('Waiting for others to join...'))
+        await screen.findByText('Waiting for others to join...')
     }
 
     it('chat panel is hidden by default', async () => {
@@ -262,20 +262,19 @@ describe('VideoMeet — chat panel', () => {
     it('keyboard C opens chat panel', async () => {
         await join()
         fireEvent.keyDown(document, { key: 'c' })
-        await waitFor(() => expect(screen.getByText('In-Meeting Chat')).toBeInTheDocument())
+        expect(await screen.findByText('In-Meeting Chat')).toBeInTheDocument()
     })
 
     it('shows "No messages yet" in empty chat', async () => {
         await join()
         fireEvent.keyDown(document, { key: 'c' })
-        await waitFor(() => screen.getByText('No messages yet'))
-        expect(screen.getByText('No messages yet')).toBeInTheDocument()
+        expect(await screen.findByText('No messages yet')).toBeInTheDocument()
     })
 
     it('pressing C again closes the chat panel', async () => {
         await join()
         fireEvent.keyDown(document, { key: 'c' })
-        await waitFor(() => screen.getByText('In-Meeting Chat'))
+        await screen.findByText('In-Meeting Chat')
         fireEvent.keyDown(document, { key: 'c' })
         await waitFor(() => expect(screen.queryByText('In-Meeting Chat')).not.toBeInTheDocument())
     })

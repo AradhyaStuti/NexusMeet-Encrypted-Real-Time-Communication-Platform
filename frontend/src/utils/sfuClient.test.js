@@ -2,10 +2,10 @@
  * Tests for SfuClient mediasoup-client wrapper
  */
 
+import { SfuClient } from '../utils/sfuClient'
+
 // Mock mediasoup-client — factory must be self-contained (no outer refs)
 jest.mock('mediasoup-client', () => ({ Device: jest.fn() }))
-
-import { SfuClient } from '../utils/sfuClient'
 
 // Get the mocked Device constructor so we can set its return value
 const { Device } = require('mediasoup-client')
