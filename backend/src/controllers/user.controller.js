@@ -14,24 +14,24 @@ import logger from "../utils/logger.js";
 export const requireAuth = async (req, res, next) => {
     const token = req.headers["x-auth-token"];
     if (!token) {
-        return res.status(httpStatus.UNAUTHORIZED).json({ message: "Authentication required" });
+        return res.status(httpStatus.UNAUTHORIZED).json({ code: "AUTH_REQUIRED", message: "Authentication required" });
     }
 
     const decoded = verifyToken(token);
     if (!decoded) {
-        return res.status(httpStatus.UNAUTHORIZED).json({ message: "Invalid or expired token" });
+        return res.status(httpStatus.UNAUTHORIZED).json({ code: "AUTH_INVALID", message: "Invalid or expired token" });
     }
 
     try {
         const user = await User.findById(decoded.id).lean();
         if (!user) {
-            return res.status(httpStatus.UNAUTHORIZED).json({ message: "User not found" });
+            return res.status(httpStatus.UNAUTHORIZED).json({ code: "USER_NOT_FOUND", message: "User not found" });
         }
         req.user = user;
         next();
     } catch (e) {
-        logger.error("Auth middleware failed", { error: e.message });
-        return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ message: "Auth check failed" });
+        logger.error("Auth middleware failed", { requestId: req.id, error: e.message });
+        return res.status(httpStatus.INTERNAL_SERVER_ERROR).json({ code: "AUTH_ERROR", message: "Auth check failed" });
     }
 };
 

@@ -29,7 +29,10 @@ export class SfuRoom {
     }
 
     async createTransport(socketId) {
-        const transport = await this.router.createWebRtcTransport(webRtcTransportOptions);
+        const transportPromise = this.router.createWebRtcTransport(webRtcTransportOptions);
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Transport creation timed out")), 10_000));
+        const transport = await Promise.race([transportPromise, timeout]);
 
         transport.on("dtlsstatechange", (state) => {
             if (state === "closed") {

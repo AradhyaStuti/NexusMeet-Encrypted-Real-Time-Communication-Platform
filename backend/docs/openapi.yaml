@@ -1,0 +1,329 @@
+openapi: 3.1.0
+info:
+  title: UshaMeetX API
+  version: 2.0.0
+  description: |
+    REST API for UshaMeetX — a full-stack WebRTC video conferencing platform.
+
+    ## Authentication
+    Protected endpoints require a JWT in the `x-auth-token` header.
+    Obtain a token via `POST /api/v1/users/login`.
+
+    ## Rate Limiting
+    - Auth endpoints (`/login`, `/register`): 30 requests per 15 minutes per IP
+    - Chat messages (Socket.io): 10 messages per 10 seconds per socket
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://your-deploy.onrender.com
+    description: Production
+
+tags:
+  - name: Auth
+    description: Registration and login
+  - name: History
+    description: Meeting history (protected)
+  - name: System
+    description: Health, metrics, ICE/SFU config
+
+paths:
+  /api/v1/users/register:
+    post:
+      tags: [Auth]
+      summary: Create a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, username, password]
+              properties:
+                name:
+                  type: string
+                  example: Alice Smith
+                username:
+                  type: string
+                  minLength: 3
+                  pattern: '^[a-zA-Z0-9_]+$'
+                  example: alice_s
+                password:
+                  type: string
+                  minLength: 6
+                  example: s3cur3pass
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/users/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate and receive a JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: alice_s
+                password:
+                  type: string
+                  example: s3cur3pass
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT — include in `x-auth-token` for protected routes
+                  username:
+                    type: string
+                  name:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/users/get_all_activity:
+    get:
+      tags: [History]
+      summary: Fetch meeting history for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of past meetings (newest first, max 100)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meeting'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/users/add_to_activity:
+    post:
+      tags: [History]
+      summary: Save a meeting to history
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [meeting_code]
+              properties:
+                meeting_code:
+                  type: string
+                  example: my-room-abc123
+      responses:
+        '201':
+          description: Added to history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/users/delete_from_activity:
+    delete:
+      tags: [History]
+      summary: Delete a meeting from history
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [meeting_id]
+              properties:
+                meeting_id:
+                  type: string
+                  description: MongoDB ObjectId of the meeting record
+                  example: 64f1a2b3c4d5e6f7a8b9c0d1
+      responses:
+        '200':
+          description: Meeting deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Meeting not found
+
+  /api/v1/ice-config:
+    get:
+      tags: [System]
+      summary: Get ICE/TURN server configuration for WebRTC
+      responses:
+        '200':
+          description: ICE server list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  iceServers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        urls:
+                          type: string
+                        username:
+                          type: string
+                        credential:
+                          type: string
+
+  /api/v1/sfu-status:
+    get:
+      tags: [System]
+      summary: Check if mediasoup SFU is available
+      responses:
+        '200':
+          description: SFU availability flag
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+
+  /api/v1/metrics:
+    get:
+      tags: [System]
+      summary: Lightweight server metrics
+      responses:
+        '200':
+          description: Runtime metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uptime_seconds:
+                    type: integer
+                  memory_mb:
+                    type: integer
+                  requests_total:
+                    type: integer
+                  requests_errors:
+                    type: integer
+                  mongo_state:
+                    type: integer
+                    description: "0=disconnected 1=connected 2=connecting 3=disconnecting"
+                  sfu_available:
+                    type: boolean
+
+  /health:
+    get:
+      tags: [System]
+      summary: Server health check
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  uptime:
+                    type: integer
+                  mongo:
+                    type: string
+                    enum: [connected, disconnected]
+                  sfu:
+                    type: boolean
+                  version:
+                    type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: apiKey
+      in: header
+      name: x-auth-token
+
+  schemas:
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    Meeting:
+      type: object
+      properties:
+        _id:
+          type: string
+        user_id:
+          type: string
+        meetingCode:
+          type: string
+        date:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequest:
+      description: Invalid or missing input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageResponse'

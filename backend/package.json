@@ -8,11 +8,12 @@
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "test": "node --test tests/auth.test.js tests/logger.test.js"
+    "test": "NODE_ENV=test node --test tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js"
   },
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.0.3",
@@ -26,5 +27,10 @@
     "nodemon": "^3.0.2",
     "socket.io": "^4.7.3",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.0.1",
+    "socket.io-client": "^4.8.3",
+    "supertest": "^7.2.2"
   }
 }

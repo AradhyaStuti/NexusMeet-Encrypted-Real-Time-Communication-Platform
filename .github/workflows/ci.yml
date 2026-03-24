@@ -34,6 +34,9 @@ jobs:
         run: |
           node --check src/app.js
           node --check src/controllers/socketManager.js
+          node --check src/controllers/socketHandlers/state.js
+          node --check src/controllers/socketHandlers/chat.js
+          node --check src/controllers/socketHandlers/sfu.js
           node --check src/controllers/user.controller.js
           node --check src/routes/users.routes.js
           node --check src/utils/jwt.js
@@ -43,7 +46,9 @@ jobs:
           node --check src/sfu/room.js
 
       - name: Run tests
-        run: node --test tests/
+        run: node --test tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js
+        env:
+          NODE_ENV: test
 
   frontend:
     name: Frontend
@@ -65,6 +70,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npx eslint src --ext .js,.jsx --max-warnings=0
+        env:
+          CI: true
+
       - name: Run tests
         run: npx react-scripts test --watchAll=false --ci --passWithNoTests
         env:
@@ -74,3 +84,19 @@ jobs:
         run: npm run build
         env:
           CI: false
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose config
+        run: docker compose config --quiet
+
+      - name: Build backend image
+        run: docker build --target deps ./backend
+
+      - name: Build frontend image
+        run: docker build ./frontend
