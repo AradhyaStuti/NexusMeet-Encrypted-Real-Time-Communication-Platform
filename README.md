@@ -7,6 +7,8 @@ WebRTC video conferencing with mediasoup SFU and E2E encrypted chat
 ![React](https://img.shields.io/badge/React_18-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![Node](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
 ![WebRTC](https://img.shields.io/badge/WebRTC-333?style=flat-square&logo=webrtc&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-247_passing-brightgreen?style=flat-square)
 
 </div>
 
@@ -32,7 +34,7 @@ started as a basic P2P thing but I ended up adding an SFU layer with mediasoup s
 
 **frontend** — React 18, MUI dark theme, mediasoup-client, Socket.io, DOMPurify for XSS
 
-**backend** — Express, mediasoup (SFU worker pool), Socket.io, MongoDB, JWT + bcrypt, Helmet, rate limiting, Winston for logs
+**backend** — Express, mediasoup (SFU worker pool), Socket.io, MongoDB, JWT + bcrypt, Helmet + HSTS, rate limiting, gzip compression, Winston structured logs
 
 ## how the SFU works
 
@@ -48,15 +50,30 @@ this only covers chat — the video/audio is already encrypted by WebRTC (SRTP).
 
 ## running it
 
+### with Docker (recommended)
+
 ```bash
 git clone https://github.com/AradhyaStuti/UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform.git
 cd UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform
+
+# set required secrets
+echo "JWT_SECRET=your-secret-here" > .env
+
+docker compose up
 ```
+
+- frontend → http://localhost:3000
+- backend API → http://localhost:8000
+- MongoDB is included, data persists in a named volume
+
+for SFU you also need `MEDIASOUP_ANNOUNCED_IP` set to your server's public IP and UDP ports 10000–10100 open. without that it falls back to P2P automatically.
+
+### without Docker
 
 ```bash
 # backend
 cd backend
-cp .env.example .env   # need MONGO_URI and JWT_SECRET at minimum
+cp .env.example .env   # fill in MONGO_URI and JWT_SECRET
 npm install && npm start
 
 # frontend (other terminal)
@@ -64,31 +81,69 @@ cd frontend
 npm install && npm start
 ```
 
-for SFU to work you need to set `MEDIASOUP_ANNOUNCED_IP` to your server's public IP and open up some UDP ports (`RTC_MIN_PORT`/`RTC_MAX_PORT`). on platforms without UDP support it just uses P2P.
-
 ## tests
 
+247 tests across backend + frontend, all passing.
+
 ```bash
-cd backend && npm test     # jwt, validation, rate limiting, logger
-cd frontend && npm test    # landing page, error boundary, avatar picker
+cd backend && npm test
+# jwt, validation, controller, SFU room, socket events (real socket.io),
+# HTTP integration (real MongoDB via mongodb-memory-server)
+
+cd frontend && npm test
+# VideoMeet component, hooks (useRoomControls, useNetworkQuality,
+# useEncryptedChat), SfuClient, encryption utils, ErrorBoundary
 ```
 
-there's a github actions pipeline that runs these on every push too.
+there's a GitHub Actions pipeline that runs lint + tests + Docker build on every push.
+
+## API
+
+Full OpenAPI 3.1.0 spec at [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml).
+
+Full Socket.IO event reference at [`backend/docs/socket-events.md`](backend/docs/socket-events.md).
+
+**HTTP endpoints**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | — | Service health (mongo, sfu, version) |
+| GET | `/api/v1/metrics` | — | Uptime, memory, request counts |
+| GET | `/api/v1/ice-config` | — | STUN/TURN server list |
+| GET | `/api/v1/sfu-status` | — | Whether SFU is available |
+| POST | `/api/v1/users/register` | — | Create account |
+| POST | `/api/v1/users/login` | — | Authenticate, get JWT |
+| GET | `/api/v1/users/get_all_activity` | JWT | Meeting history |
+| POST | `/api/v1/users/add_to_activity` | JWT | Save meeting to history |
+| DELETE | `/api/v1/users/delete_from_activity` | JWT | Remove from history |
+
+Every response includes an `x-request-id` header for tracing.
 
 ## project layout
 
 ```
 backend/src/
-  app.js
-  controllers/  user.controller.js  socketManager.js
+  app.js                            Express app, middleware, routes
+  controllers/
+    socketManager.js                Socket.IO orchestrator (join/signal/disconnect)
+    socketHandlers/
+      state.js                      Shared Maps, rate limiter, room TTL
+      chat.js                       chat-message, hand-raise, reaction, typing
+      sfu.js                        mediasoup signalling (8 events, guard wrapper)
   sfu/          config.js  worker.js  room.js
   models/       user.model.js  meeting.model.js
   utils/        jwt.js  logger.js
+  routes/       users.routes.js
+
+backend/docs/
+  openapi.yaml                      Full HTTP API spec (OpenAPI 3.1.0)
+  socket-events.md                  All 20 Socket.IO events documented
 
 frontend/src/
   pages/        VideoMeet.jsx  landing  auth  home  history
+  hooks/        useRoomControls  useNetworkQuality  useEncryptedChat  useMediaDevices
   components/   ErrorBoundary  AvatarPicker  Logo
-  utils/        sfuClient.js  encryption.js
+  utils/        sfuClient.js  encryption.js  withAuth.jsx
   contexts/     AuthContext.jsx
 ```
 
