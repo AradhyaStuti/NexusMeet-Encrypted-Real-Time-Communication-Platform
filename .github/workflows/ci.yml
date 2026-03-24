@@ -94,6 +94,8 @@ jobs:
 
       - name: Validate docker-compose config
         run: docker compose config --quiet
+        env:
+          JWT_SECRET: ci-placeholder-not-used-in-production
 
       - name: Build backend image
         run: docker build --target deps ./backend
