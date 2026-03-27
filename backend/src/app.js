@@ -149,15 +149,34 @@ connectToSocket(server, ["*"]);
 
 // ── Serve frontend in production ──
 import path from "node:path";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frontendBuild = path.join(__dirname, "../../frontend/build");
 import fs from "node:fs";
-if (fs.existsSync(frontendBuild)) {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Try multiple possible paths for the frontend build
+const possiblePaths = [
+    path.join(__dirname, "../../frontend/build"),
+    path.join(process.cwd(), "frontend/build"),
+    path.join(process.cwd(), "../frontend/build"),
+    path.join(process.cwd(), "build"),
+];
+
+let frontendBuild = null;
+for (const p of possiblePaths) {
+    if (fs.existsSync(path.join(p, "index.html"))) {
+        frontendBuild = p;
+        break;
+    }
+}
+
+if (frontendBuild) {
+    logger.info(`Serving frontend from ${frontendBuild}`);
     app.use(express.static(frontendBuild));
     app.get("*", (req, res, next) => {
         if (req.path.startsWith("/api/") || req.path === "/health") return next();
         res.sendFile(path.join(frontendBuild, "index.html"));
     });
+} else {
+    logger.warn("Frontend build not found, tried: " + possiblePaths.join(", "));
 }
 
 // ── Global error handler ──
