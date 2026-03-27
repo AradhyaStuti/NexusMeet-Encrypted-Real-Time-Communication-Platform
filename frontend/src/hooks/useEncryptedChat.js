@@ -3,6 +3,7 @@ import { getOrCreateRoomKey, encryptMessage, decryptMessage } from '../utils/enc
 
 /**
  * Manages chat state with optional E2E encryption.
+ * Shares the E2E key via socket so users joining via code also get it.
  */
 export function useEncryptedChat({ socketRef, socketIdRef }) {
     const [messages, setMessages] = useState([])
@@ -15,19 +16,50 @@ export function useEncryptedChat({ socketRef, socketIdRef }) {
 
     const initE2E = useCallback(async () => {
         try {
-            const { key } = await getOrCreateRoomKey()
+            const { key, isNew } = await getOrCreateRoomKey()
             e2eKeyRef.current = key
             setE2eEnabled(true)
+
+            const socket = socketRef.current
+            if (!socket) return
+
+            // If we created a new key (no hash in URL), request the room key from others
+            if (isNew) {
+                socket.on('e2e-key', async (sharedKey) => {
+                    if (sharedKey && sharedKey.length >= 20) {
+                        e2eKeyRef.current = sharedKey
+                        // Update URL hash so "Copy Invite Link" includes the key
+                        window.history.replaceState(null, '', window.location.pathname + '#' + sharedKey)
+                    }
+                })
+                socket.emit('request-e2e-key')
+            }
+
+            // When someone requests the key, share ours
+            socket.on('request-e2e-key', () => {
+                if (e2eKeyRef.current) {
+                    socket.emit('share-e2e-key', e2eKeyRef.current)
+                }
+            })
         } catch { }
-    }, [])
+    }, [socketRef])
 
     const addMessage = useCallback(async (data, sender, socketIdSender, timestamp) => {
         let plaintext = data
         if (e2eKeyRef.current) {
-            try { plaintext = await decryptMessage(data, e2eKeyRef.current) } catch { plaintext = data }
+            try {
+                const decrypted = await decryptMessage(data, e2eKeyRef.current)
+                // Only use decrypted if it actually decrypted (not the fallback)
+                if (decrypted !== '[encrypted message]') {
+                    plaintext = decrypted
+                }
+            } catch {
+                // If decryption fails, show raw data
+            }
         }
-        setMessages(prev => [...prev, { sender, data: plaintext, timestamp }])
-        if (socketIdSender !== socketIdRef.current) {
+        const isSelf = socketIdSender === socketIdRef.current
+        setMessages(prev => [...prev, { sender, data: plaintext, timestamp, isSelf }])
+        if (!isSelf) {
             setNewMessages(prev => prev + 1)
         }
     }, [socketIdRef])

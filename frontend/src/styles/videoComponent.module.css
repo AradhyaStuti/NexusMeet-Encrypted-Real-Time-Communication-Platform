@@ -885,14 +885,34 @@
 
 .chatMessage {
     background: rgba(14,165,233,0.05);
-    border-radius: 10px;
+    border-radius: 12px 12px 12px 4px;
     padding: 0.6rem 0.9rem;
     border: 1px solid rgba(14,165,233,0.1);
     transition: background 0.2s;
+    align-self: flex-start;
+    max-width: 85%;
 }
 
 .chatMessage:hover {
     background: rgba(14,165,233,0.09);
+}
+
+.chatMessageSelf {
+    background: rgba(14,165,233,0.15);
+    border-radius: 12px 12px 4px 12px;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid rgba(14,165,233,0.2);
+    transition: background 0.2s;
+    align-self: flex-end;
+    max-width: 85%;
+}
+
+.chatMessageSelf:hover {
+    background: rgba(14,165,233,0.22);
+}
+
+.chatMessageSelf .chatSender {
+    color: #7dd3fc;
 }
 
 .chatMessageHeader {

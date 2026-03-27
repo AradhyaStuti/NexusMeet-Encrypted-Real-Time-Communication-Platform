@@ -197,9 +197,10 @@ export default function VideoMeetComponent() {
         })
         socketRef.current.on('signal', gotMessageFromServer)
 
-        socketRef.current.on('connect', () => {
+        socketRef.current.on('connect', async () => {
             socketRef.current.emit('join-call', window.location.pathname, username, getAvatar())
             socketIdRef.current = socketRef.current.id
+            await chat.initE2E()
 
             socketRef.current.on('chat-message', chat.addMessage)
             socketRef.current.on('error-message', (msg) => {
@@ -317,7 +318,6 @@ export default function VideoMeetComponent() {
             sfuModeRef.current = data.enabled === true
             setSfuActive(data.enabled === true)
         } catch { }
-        await chat.initE2E()
         media.setVideo(media.videoAvailable)
         media.setAudio(media.audioAvailable)
         connectToSocketServer()
@@ -486,9 +486,9 @@ export default function VideoMeetComponent() {
                                     <div className={styles.noMessages}><p>No messages yet</p><span style={{ fontSize: '0.78rem', opacity: 0.5 }}>Say hello to everyone!</span></div>
                                 ) : (
                                     chat.messages.map((item, index) => (
-                                        <div key={index} className={styles.chatMessage}>
+                                        <div key={index} className={item.isSelf ? styles.chatMessageSelf : styles.chatMessage}>
                                             <div className={styles.chatMessageHeader}>
-                                                <span className={styles.chatSender}>{DOMPurify.sanitize(item.sender)}</span>
+                                                <span className={styles.chatSender}>{item.isSelf ? 'You' : (DOMPurify.sanitize(item.sender) || 'Participant')}</span>
                                                 <span className={styles.chatTimestamp}>{formatTime(item.timestamp)}</span>
                                             </div>
                                             <p className={styles.chatText}>{DOMPurify.sanitize(item.data)}</p>
