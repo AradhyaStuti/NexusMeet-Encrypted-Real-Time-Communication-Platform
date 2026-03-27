@@ -147,6 +147,19 @@ app.get("/api/v1/metrics", (_req, res) => {
 // ── Socket.io ──
 connectToSocket(server, ["*"]);
 
+// ── Serve frontend in production ──
+import path from "node:path";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendBuild = path.join(__dirname, "../../frontend/build");
+import fs from "node:fs";
+if (fs.existsSync(frontendBuild)) {
+    app.use(express.static(frontendBuild));
+    app.get("*", (req, res, next) => {
+        if (req.path.startsWith("/api/") || req.path === "/health") return next();
+        res.sendFile(path.join(frontendBuild, "index.html"));
+    });
+}
+
 // ── Global error handler ──
 app.use((err, req, res, _next) => {
     const status = err.status || 500;
