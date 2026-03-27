@@ -315,7 +315,7 @@ export default function VideoMeetComponent() {
                 }
             })
         })
-    }, [username, gotMessageFromServer, chat, room, lobby, addRemoteStream, addRemoteTrack])
+    }, [username, gotMessageFromServer, chat, room, addRemoteStream, addRemoteTrack]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Get media + connect ──
     const getMedia = useCallback(async () => {
@@ -330,10 +330,9 @@ export default function VideoMeetComponent() {
             sfuModeRef.current = data.enabled === true
             setSfuActive(data.enabled === true)
         } catch { }
-        media.setVideo(media.videoAvailable)
-        media.setAudio(media.audioAvailable)
+        media.startMedia()
         connectToSocketServer()
-    }, [chat, media, connectToSocketServer])
+    }, [connectToSocketServer]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const connect = useCallback(() => {
         setAskForUsername(false)

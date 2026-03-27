@@ -33,23 +33,25 @@ export function useMediaDevices({ localVideoRef, connectionsRef, socketRef }) {
     const [screen, setScreen] = useState(false)
 
     const getPermissions = useCallback(async () => {
+        let hasVideo = false
+        let hasAudio = false
+
         try {
-            const p = await navigator.mediaDevices.getUserMedia({ video: true })
-            p.getTracks().forEach(t => t.stop())
+            await navigator.mediaDevices.getUserMedia({ video: true })
+            hasVideo = true
             setVideoAvailable(true)
         } catch { setVideoAvailable(false) }
 
         try {
-            const p = await navigator.mediaDevices.getUserMedia({ audio: true })
-            p.getTracks().forEach(t => t.stop())
+            await navigator.mediaDevices.getUserMedia({ audio: true })
+            hasAudio = true
             setAudioAvailable(true)
         } catch { setAudioAvailable(false) }
 
         setScreenAvailable(!!navigator.mediaDevices.getDisplayMedia)
 
+        // Get a combined stream and keep it alive for preview + call
         try {
-            const hasVideo = await navigator.mediaDevices.getUserMedia({ video: true }).then(() => true).catch(() => false)
-            const hasAudio = await navigator.mediaDevices.getUserMedia({ audio: true }).then(() => true).catch(() => false)
             if (hasVideo || hasAudio) {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: hasVideo, audio: hasAudio })
                 window.localStream = stream
@@ -96,7 +98,7 @@ export function useMediaDevices({ localVideoRef, connectionsRef, socketRef }) {
 
     const getUserMedia = useCallback((videoOn, audioOn, videoAvail, audioAvail) => {
         if ((videoOn && videoAvail) || (audioOn && audioAvail)) {
-            navigator.mediaDevices.getUserMedia({ video: videoOn, audio: audioOn })
+            navigator.mediaDevices.getUserMedia({ video: videoOn && videoAvail, audio: audioOn && audioAvail })
                 .then(getUserMediaSuccess)
                 .catch(() => { })
         } else {
@@ -130,6 +132,15 @@ export function useMediaDevices({ localVideoRef, connectionsRef, socketRef }) {
         }
     }, [getDisplayMediaSuccess])
 
+    /** Force-start camera + mic (call when entering the meeting) */
+    const startMedia = useCallback(() => {
+        if (videoAvailable || audioAvailable) {
+            navigator.mediaDevices.getUserMedia({ video: videoAvailable, audio: audioAvailable })
+                .then(getUserMediaSuccess)
+                .catch(() => { })
+        }
+    }, [videoAvailable, audioAvailable, getUserMediaSuccess])
+
     const handleVideo = useCallback(() => setVideo(v => !v), [])
     const handleAudio = useCallback(() => setAudio(a => !a), [])
     const handleScreen = useCallback(() => setScreen(s => !s), [])
@@ -141,5 +152,6 @@ export function useMediaDevices({ localVideoRef, connectionsRef, socketRef }) {
         getPermissions, getUserMedia, getUserMediaSuccess,
         getDisplayMedia, getDisplayMediaSuccess,
         handleVideo, handleAudio, handleScreen,
+        startMedia,
     }
 }

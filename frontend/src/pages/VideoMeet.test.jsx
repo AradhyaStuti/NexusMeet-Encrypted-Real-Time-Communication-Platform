@@ -12,6 +12,7 @@ const mockMedia = {
     getUserMedia: jest.fn(), getUserMediaSuccess: jest.fn(),
     getDisplayMedia: jest.fn(), getDisplayMediaSuccess: jest.fn(),
     handleVideo: jest.fn(), handleAudio: jest.fn(), handleScreen: jest.fn(),
+    startMedia: jest.fn(),
 }
 jest.mock('../hooks/useMediaDevices', () => ({
     useMediaDevices: jest.fn(() => mockMedia),
@@ -33,6 +34,15 @@ const mockChat = {
 }
 jest.mock('../hooks/useEncryptedChat', () => ({
     useEncryptedChat: jest.fn(() => mockChat),
+}))
+
+const mockLobby = {
+    waitingStatus: null, isHost: false, waitingUsers: [],
+    admitUser: jest.fn(), rejectUser: jest.fn(), admitAll: jest.fn(),
+    registerListeners: jest.fn(),
+}
+jest.mock('../hooks/useWaitingRoom', () => ({
+    useWaitingRoom: () => mockLobby,
 }))
 
 const mockRoom = {
