@@ -40,9 +40,15 @@ export const connectToSocket = (server, allowedOrigins = ["*"]) => {
         logger.info("Socket connected", { socketId: socket.id, sfu: sfuEnabled });
 
         // ── Join room ──────────────────────────────────────────────────────
-        socket.on("join-call", async (path, username = "Guest", avatar = "😊") => {
+        socket.on("join-call", async (rawPath, username = "Guest", avatar = "😊") => {
             username = String(username).slice(0, 40) || "Guest";
             avatar   = String(avatar).slice(0, 4)   || "😊";
+
+            // Normalize: extract pathname only (strip protocol/host/port),
+            // lowercase, and remove trailing slash so all clients match the same room.
+            let path = String(rawPath);
+            try { path = new URL(path).pathname; } catch { /* already a pathname */ }
+            path = path.toLowerCase().replace(/\/+$/, "") || "/";
 
             leaveCurrentRoom(socket, io);
 
