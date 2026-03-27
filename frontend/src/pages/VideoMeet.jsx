@@ -211,6 +211,9 @@ export default function VideoMeetComponent() {
             socketIdRef.current = socketRef.current.id
             await chat.initE2E()
 
+            // Register waiting room listeners on this socket
+            lobby.registerListeners(socketRef.current)
+
             socketRef.current.on('chat-message', chat.addMessage)
             socketRef.current.on('error-message', (msg) => {
                 chat.addMessage(msg, 'System', null, Date.now())
@@ -312,7 +315,7 @@ export default function VideoMeetComponent() {
                 }
             })
         })
-    }, [username, gotMessageFromServer, chat, room, addRemoteStream, addRemoteTrack])
+    }, [username, gotMessageFromServer, chat, room, lobby, addRemoteStream, addRemoteTrack])
 
     // ── Get media + connect ──
     const getMedia = useCallback(async () => {
