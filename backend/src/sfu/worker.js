@@ -11,6 +11,10 @@ let nextWorkerIdx = 0;
  * Returns true if SFU is available, false if mediasoup couldn't load
  */
 export async function initWorkers() {
+    if (process.env.DISABLE_SFU === "true") {
+        logger.info("SFU disabled via DISABLE_SFU env var, using P2P mode");
+        return false;
+    }
     try {
         const mediasoup = await import("mediasoup");
         const numWorkers = Math.min(os.cpus().length, 4);

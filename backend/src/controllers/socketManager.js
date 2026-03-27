@@ -24,11 +24,12 @@ import { registerSfuHandlers } from "./socketHandlers/sfu.js";
 // Re-export so existing tests keep working without path changes
 export { isRateLimited } from "./socketHandlers/state.js";
 
-export const connectToSocket = (server, allowedOrigins = ["*"]) => {
+export const connectToSocket = (server) => {
     const io = new Server(server, {
         cors: {
-            origin: allowedOrigins.includes("*") ? "*" : allowedOrigins,
+            origin: true,
             methods: ["GET", "POST"],
+            credentials: true,
         },
         pingInterval: 25_000,
         pingTimeout: 20_000,

@@ -38,21 +38,12 @@ app.use(compression());
 // ── Trust proxy (for rate limiting behind reverse proxy on Render) ──
 app.set("trust proxy", 1);
 
-// ── CORS ──
-const allowedOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(",").map(o => o.trim())
-    : null; // null = allow all in dev
-
-const corsOptions = allowedOrigins
-    ? {
-        origin: (origin, cb) => {
-            if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-            cb(new Error("Not allowed by CORS"));
-        },
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        credentials: true,
-    }
-    : { origin: true, credentials: true }; // allow all if CORS_ORIGINS not set
+// ── CORS — allow any origin so meeting links work from anywhere ──
+const corsOptions = {
+    origin: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+};
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
@@ -154,7 +145,7 @@ app.get("/api/v1/metrics", (_req, res) => {
 });
 
 // ── Socket.io ──
-connectToSocket(server, allowedOrigins ?? ["*"]);
+connectToSocket(server, ["*"]);
 
 // ── Global error handler ──
 app.use((err, req, res, _next) => {
