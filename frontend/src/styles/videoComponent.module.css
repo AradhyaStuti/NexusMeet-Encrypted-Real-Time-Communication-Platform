@@ -177,6 +177,11 @@
     gap: 4px;
 }
 
+.participantAvatar {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
 /* Hand raised badge */
 .handRaisedBadge {
     animation: handWave 0.6s ease-in-out infinite alternate;

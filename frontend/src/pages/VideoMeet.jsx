@@ -61,6 +61,7 @@ export default function VideoMeetComponent() {
     const [showModal, setModal] = useState(false)
     const [sfuActive, setSfuActive] = useState(false)
     const [showWaitingPanel, setShowWaitingPanel] = useState(false)
+    const participantNamesRef = useRef({}) // socketId → { username, avatar }
 
     // ── Custom hooks ──
     const media = useMediaDevices({ localVideoRef: localVideoref, connectionsRef, socketRef })
@@ -214,7 +215,11 @@ export default function VideoMeetComponent() {
             // Register waiting room listeners on this socket
             lobby.registerListeners(socketRef.current)
 
-            socketRef.current.on('chat-message', chat.addMessage)
+            socketRef.current.on('chat-message', (data, sender, socketId, timestamp) => {
+                // Use actual username from participant list, fall back to sender param
+                const name = participantNamesRef.current[socketId]?.username || sender || 'Participant'
+                chat.addMessage(data, name, socketId, timestamp)
+            })
             socketRef.current.on('error-message', (msg) => {
                 chat.addMessage(msg, 'System', null, Date.now())
             })
@@ -247,8 +252,9 @@ export default function VideoMeetComponent() {
             }
 
             socketRef.current.on('user-joined', async (id, participants) => {
-                const participantNames = {}
-                participants.forEach(p => { participantNames[p.socketId] = { username: p.username, avatar: p.avatar } })
+                participants.forEach(p => {
+                    participantNamesRef.current[p.socketId] = { username: p.username, avatar: p.avatar }
+                })
 
                 if (sfuModeRef.current && id === socketIdRef.current) {
                     try {
@@ -345,7 +351,7 @@ export default function VideoMeetComponent() {
     }, [cleanupCall])
 
     const handleSendMessage = useCallback(() => {
-        chat.sendMessage(chat.message)
+        chat.sendMessage(chat.message, username)
         chat.setMessage('')
     }, [chat])
 
@@ -362,6 +368,14 @@ export default function VideoMeetComponent() {
     const networkIcon = networkQuality === 'good' ? '🟢' : networkQuality === 'fair' ? '🟡' : '🔴'
     const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
     const inMeeting = !askForUsername && lobby.waitingStatus !== 'waiting' && lobby.waitingStatus !== 'rejected'
+    const getName = (socketId) => {
+        const p = participantNamesRef.current[socketId]
+        return p ? p.username : 'Participant'
+    }
+    const getAvatarFor = (socketId) => {
+        const p = participantNamesRef.current[socketId]
+        return p ? p.avatar : '😊'
+    }
 
     return (
         <div>
@@ -503,7 +517,7 @@ export default function VideoMeetComponent() {
                                 <video ref={el => room.assignRemoteRef(el, pinnedVideoObj.socketId, pinnedVideoObj.stream, room.videoVolumes)} autoPlay className={styles.spotlightVideo} />
                                 <div className={styles.spotlightOverlay}>
                                     <span className={styles.spotlightName}>
-                                        {room.pinnedVideo}
+                                        {getAvatarFor(room.pinnedVideo)} {getName(room.pinnedVideo)}
                                         {room.raisedHands[room.pinnedVideo] && <span className={styles.handRaisedBadge}>✋</span>}
                                     </span>
                                     <span className={styles.spotlightUnpin}>Click to unpin</span>
@@ -518,7 +532,7 @@ export default function VideoMeetComponent() {
                                 {videos.filter(v => v.socketId !== room.pinnedVideo).map((v) => (
                                     <div key={v.socketId} className={styles.thumbnailItem} onClick={() => room.handlePinToggle(v.socketId)} title="Click to spotlight">
                                         <video ref={el => room.assignRemoteRef(el, v.socketId, v.stream, room.videoVolumes)} autoPlay className={styles.thumbnailVideo} />
-                                        <span className={styles.thumbnailName}>{v.socketId}</span>
+                                        <span className={styles.thumbnailName}>{getName(v.socketId)}</span>
                                         {room.raisedHands[v.socketId] && <span className={styles.thumbnailHand}>✋</span>}
                                         <span className={styles.thumbnailHint}>Spotlight</span>
                                     </div>
@@ -539,7 +553,8 @@ export default function VideoMeetComponent() {
                                     <div key={v.socketId} className={styles.remoteVideoWrap} onMouseEnter={() => room.setHoveredVideo(v.socketId)} onMouseLeave={() => room.setHoveredVideo(null)}>
                                         <video ref={el => room.assignRemoteRef(el, v.socketId, v.stream, room.videoVolumes)} autoPlay className={styles.remoteVideo} />
                                         <span className={styles.participantLabel}>
-                                            {v.socketId}
+                                            <span className={styles.participantAvatar}>{getAvatarFor(v.socketId)}</span>
+                                            {getName(v.socketId)}
                                             {room.raisedHands[v.socketId] && <span className={styles.handRaisedBadge}> ✋</span>}
                                         </span>
                                         <button onClick={e => { e.stopPropagation(); room.handlePinToggle(v.socketId) }} className={styles.pinBtn} style={{ background: room.pinnedVideo === v.socketId ? '#0E72ED' : 'rgba(0,0,0,0.55)' }}>

@@ -67,12 +67,9 @@ export function useEncryptedChat({ socketRef, socketIdRef }) {
         }
     }, [socketIdRef])
 
-    const sendMessage = useCallback(async (msgText) => {
+    const sendMessage = useCallback(async (msgText, senderName = '') => {
         if (!msgText.trim()) return
-        // Send as plain text — no encryption
-        // E2E encryption only works reliably when both users share the same link
-        // For now, send plain text so messages always work
-        socketRef.current?.emit('chat-message', msgText, '')
+        socketRef.current?.emit('chat-message', msgText, senderName)
         socketRef.current?.emit('typing', false)
     }, [socketRef])
 
