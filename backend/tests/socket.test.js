@@ -18,7 +18,7 @@ let port
 
 before(async () => {
     httpServer = createServer()
-    connectToSocket(httpServer, ['*'])
+    connectToSocket(httpServer)
     await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve))
     port = httpServer.address().port
 })
@@ -46,6 +46,28 @@ function connected(client) {
 
 function once(client, event) {
     return new Promise(resolve => client.once(event, (...args) => resolve(args)))
+}
+
+/** Helper: c1 joins as host, then admits c2 into the same room */
+async function joinTwoUsers(room, c1, c2) {
+    // c1 joins first — becomes host
+    await new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') })
+
+    // c2 joins — goes to waiting room
+    const waitP = once(c2, 'waiting-room-status')
+    c2.emit('join-call', room, 'B', '🙂')
+    const [{ status }] = await waitP
+    assert.equal(status, 'waiting')
+
+    // Host gets waiting-room-update with c2
+    const updateP = once(c1, 'waiting-room-update')
+    const [waitList] = await updateP
+    assert.ok(waitList.length >= 1)
+
+    // Host admits c2
+    const joinP = once(c2, 'user-joined')
+    c1.emit('admit-user', c2.id)
+    await joinP
 }
 
 // ── isRateLimited (unit) ───────────────────────────────────────────────────
@@ -76,7 +98,7 @@ describe('isRateLimited', () => {
 // ── join-call ──────────────────────────────────────────────────────────────
 
 describe('join-call', () => {
-    it('emits user-joined with participant list', async () => {
+    it('emits user-joined with participant list (host)', async () => {
         const c = makeClient()
         await connected(c)
         const p = once(c, 'user-joined')
@@ -88,21 +110,13 @@ describe('join-call', () => {
         c.disconnect()
     })
 
-    it('second joiner sees both participants', async () => {
+    it('second joiner goes to waiting room and host can admit', async () => {
         const room = 'room-join-2'
         const c1 = makeClient()
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
 
-        await new Promise(resolve => {
-            c1.on('user-joined', resolve)
-            c1.emit('join-call', room, 'Alice', '😊')
-        })
-
-        const p2 = once(c2, 'user-joined')
-        c2.emit('join-call', room, 'Bob', '🙂')
-        const [, participants] = await p2
-        assert.equal(participants.length, 2)
+        await joinTwoUsers(room, c1, c2)
 
         c1.disconnect()
         c2.disconnect()
@@ -118,14 +132,11 @@ describe('join-call', () => {
         c.disconnect()
     })
 
-    it('replays message history to late joiner', async () => {
+    it('replays message history to admitted joiner', async () => {
         const room = 'room-history'
         const c1 = makeClient()
         await connected(c1)
-        await new Promise(resolve => {
-            c1.on('user-joined', resolve)
-            c1.emit('join-call', room, 'Alice', '😊')
-        })
+        await new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'Alice', '😊') })
         c1.emit('chat-message', 'hello from before', 'Alice')
 
         // small delay so the message is stored
@@ -134,9 +145,41 @@ describe('join-call', () => {
         const c2 = makeClient()
         await connected(c2)
         const msgP = once(c2, 'chat-message')
+        // c2 joins and gets waiting room status
+        const waitP = once(c2, 'waiting-room-status')
         c2.emit('join-call', room, 'Bob', '🙂')
+        await waitP
+
+        // host admits c2 — c2 should get chat history replay
+        const admitWaitP = once(c1, 'waiting-room-update')
+        await admitWaitP
+        c1.emit('admit-user', c2.id)
         const [text] = await msgP
         assert.equal(text, 'hello from before')
+
+        c1.disconnect()
+        c2.disconnect()
+    })
+
+    it('host can reject a waiting user', async () => {
+        const room = 'room-reject'
+        const c1 = makeClient()
+        const c2 = makeClient()
+        await Promise.all([connected(c1), connected(c2)])
+
+        await new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'Host', '😊') })
+
+        const waitP = once(c2, 'waiting-room-status')
+        c2.emit('join-call', room, 'Guest', '🙂')
+        await waitP
+
+        // Wait for host to receive update
+        await once(c1, 'waiting-room-update')
+
+        const rejectP = once(c2, 'waiting-room-status')
+        c1.emit('reject-user', c2.id)
+        const [{ status }] = await rejectP
+        assert.equal(status, 'rejected')
 
         c1.disconnect()
         c2.disconnect()
@@ -152,10 +195,7 @@ describe('chat-message', () => {
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
 
-        await Promise.all([
-            new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') }),
-            new Promise(r => { c2.on('user-joined', r); c2.emit('join-call', room, 'B', '😊') }),
-        ])
+        await joinTwoUsers(room, c1, c2)
 
         const received = once(c2, 'chat-message')
         c1.emit('chat-message', 'hello room', 'A')
@@ -213,10 +253,7 @@ describe('hand-raise', () => {
         const c1 = makeClient()
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
-        await Promise.all([
-            new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') }),
-            new Promise(r => { c2.on('user-joined', r); c2.emit('join-call', room, 'B', '😊') }),
-        ])
+        await joinTwoUsers(room, c1, c2)
 
         const raised = once(c2, 'hand-raise')
         c1.emit('hand-raise', true)
@@ -251,10 +288,7 @@ describe('reaction', () => {
         const c1 = makeClient()
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
-        await Promise.all([
-            new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') }),
-            new Promise(r => { c2.on('user-joined', r); c2.emit('join-call', room, 'B', '😊') }),
-        ])
+        await joinTwoUsers(room, c1, c2)
 
         const rxn = once(c2, 'reaction')
         c1.emit('reaction', '👍')
@@ -271,10 +305,7 @@ describe('reaction', () => {
         const c1 = makeClient()
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
-        await Promise.all([
-            new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') }),
-            new Promise(r => { c2.on('user-joined', r); c2.emit('join-call', room, 'B', '😊') }),
-        ])
+        await joinTwoUsers(room, c1, c2)
 
         const rxn = once(c2, 'reaction')
         c1.emit('reaction', 'toolong!')
@@ -294,10 +325,7 @@ describe('typing', () => {
         const c1 = makeClient()
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
-        await Promise.all([
-            new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') }),
-            new Promise(r => { c2.on('user-joined', r); c2.emit('join-call', room, 'B', '😊') }),
-        ])
+        await joinTwoUsers(room, c1, c2)
 
         const typingP = once(c2, 'typing')
         c1.emit('typing', true)
@@ -337,10 +365,7 @@ describe('disconnect', () => {
         const c1 = makeClient()
         const c2 = makeClient()
         await Promise.all([connected(c1), connected(c2)])
-        await Promise.all([
-            new Promise(r => { c1.on('user-joined', r); c1.emit('join-call', room, 'A', '😊') }),
-            new Promise(r => { c2.on('user-joined', r); c2.emit('join-call', room, 'B', '😊') }),
-        ])
+        await joinTwoUsers(room, c1, c2)
 
         const c1Id = c1.id  // capture before disconnect clears it
         const leftP = once(c2, 'user-left')

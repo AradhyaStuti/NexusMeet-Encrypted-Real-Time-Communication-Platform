@@ -28,6 +28,7 @@ import { useMediaDevices, makeBlackSilenceStream } from '../hooks/useMediaDevice
 import { useNetworkQuality } from '../hooks/useNetworkQuality'
 import { useEncryptedChat } from '../hooks/useEncryptedChat'
 import { useRoomControls } from '../hooks/useRoomControls'
+import { useWaitingRoom } from '../hooks/useWaitingRoom'
 
 const server_url = server
 const DEFAULT_ICE_CONFIG = {
@@ -59,12 +60,14 @@ export default function VideoMeetComponent() {
     const [videos, setVideos] = useState([])
     const [showModal, setModal] = useState(false)
     const [sfuActive, setSfuActive] = useState(false)
+    const [showWaitingPanel, setShowWaitingPanel] = useState(false)
 
     // ── Custom hooks ──
     const media = useMediaDevices({ localVideoRef: localVideoref, connectionsRef, socketRef })
     const { networkQuality } = useNetworkQuality({ connectionsRef, active: !askForUsername })
     const chat = useEncryptedChat({ socketRef, socketIdRef })
     const room = useRoomControls({ socketRef, socketIdRef, remoteVideoElems })
+    const lobby = useWaitingRoom({ socketRef })
 
     // ── Init ──
     useEffect(() => {
@@ -350,9 +353,11 @@ export default function VideoMeetComponent() {
     const pinnedVideoObj = pinnedVideo ? videos.find(v => v.socketId === pinnedVideo) : null
     const networkIcon = networkQuality === 'good' ? '🟢' : networkQuality === 'fair' ? '🟡' : '🔴'
     const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+    const inMeeting = !askForUsername && lobby.waitingStatus !== 'waiting' && lobby.waitingStatus !== 'rejected'
 
     return (
         <div>
+            {/* ── PRE-JOIN LOBBY ── */}
             {askForUsername ? (
                 <div className={styles.lobbyContainer}>
                     <div className={styles.lobbyCard}>
@@ -374,13 +379,10 @@ export default function VideoMeetComponent() {
                             </div>
                         </div>
                         <TextField
-                            fullWidth
-                            label="Your Name"
-                            value={username}
+                            fullWidth label="Your Name" value={username}
                             onChange={e => setUsername(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && username.trim() && connect()}
-                            variant="outlined"
-                            size="small"
+                            variant="outlined" size="small"
                             sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' }, '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' }, '&.Mui-focused fieldset': { borderColor: '#0E72ED' }, borderRadius: '10px', color: 'white', background: 'rgba(255,255,255,0.06)' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' }, '& .MuiInputLabel-root.Mui-focused': { color: '#0E72ED' }, mb: 2 }}
                         />
                         <Button variant="contained" fullWidth onClick={connect} disabled={!username.trim()}
@@ -392,6 +394,53 @@ export default function VideoMeetComponent() {
                         </p>
                     </div>
                 </div>
+
+            /* ── WAITING FOR ADMISSION ── */
+            ) : lobby.waitingStatus === 'waiting' ? (
+                <div className={styles.lobbyContainer}>
+                    <div className={styles.waitingAdmissionCard}>
+                        <div className={styles.lobbyBrand}>
+                            <UshaMeetXLogo size={34} />
+                            <span className={styles.lobbyBrandName}>UshaMeetX</span>
+                        </div>
+                        <div className={styles.waitingPulseRing}>
+                            <div className={styles.waitingPulseInner} />
+                        </div>
+                        <h2 className={styles.waitingTitle}>Waiting for the host to let you in</h2>
+                        <p className={styles.waitingSubtext}>The host has been notified. Please wait...</p>
+                        <div className={styles.waitingPreview}>
+                            <video ref={localVideoref} autoPlay muted className={styles.lobbyVideo} />
+                        </div>
+                        <div className={styles.waitingUserInfo}>
+                            <span style={{ fontSize: '1.4rem' }}>{getAvatar()}</span>
+                            <span className={styles.waitingUsername}>{username}</span>
+                        </div>
+                        <Button variant="outlined" onClick={handleEndCall}
+                            sx={{ mt: 1, color: '#f87171', borderColor: 'rgba(248,113,113,0.3)', borderRadius: '10px', textTransform: 'none', fontWeight: 600, '&:hover': { borderColor: '#f87171', background: 'rgba(248,113,113,0.08)' } }}>
+                            Leave
+                        </Button>
+                    </div>
+                </div>
+
+            /* ── REJECTED ── */
+            ) : lobby.waitingStatus === 'rejected' ? (
+                <div className={styles.lobbyContainer}>
+                    <div className={styles.waitingAdmissionCard}>
+                        <div className={styles.lobbyBrand}>
+                            <UshaMeetXLogo size={34} />
+                            <span className={styles.lobbyBrandName}>UshaMeetX</span>
+                        </div>
+                        <div style={{ fontSize: '3rem', margin: '1.5rem 0 0.5rem', textAlign: 'center' }}>🚫</div>
+                        <h2 className={styles.waitingTitle}>You were not admitted</h2>
+                        <p className={styles.waitingSubtext}>The host did not allow you to join this meeting.</p>
+                        <Button variant="contained" onClick={() => { window.location.href = '/' }}
+                            sx={{ mt: 2, background: '#0E72ED', borderRadius: '10px', textTransform: 'none', fontWeight: 700, '&:hover': { background: '#0A5BC4' } }}>
+                            Return Home
+                        </Button>
+                    </div>
+                </div>
+
+            /* ── IN-MEETING ── */
             ) : (
                 <main className={styles.meetVideoContainer} aria-label="Video meeting room">
                     {room.copyToast && <div className={styles.copyToast}>Link copied!</div>}
@@ -406,6 +455,39 @@ export default function VideoMeetComponent() {
                             </div>
                         ))}
                     </div>
+
+                    {/* Host Waiting Room Panel */}
+                    {lobby.isHost && showWaitingPanel && (
+                        <aside className={styles.waitingRoomPanel} aria-label="Waiting room">
+                            <div className={styles.waitingPanelHeader}>
+                                <span className={styles.chatTitle}>Waiting Room</span>
+                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                    {lobby.waitingUsers.length > 1 && (
+                                        <button className={styles.admitAllBtn} onClick={lobby.admitAll}>Admit All</button>
+                                    )}
+                                    <IconButton onClick={() => setShowWaitingPanel(false)} size="small" sx={{ color: 'rgba(255,255,255,0.6)' }}><CloseIcon fontSize="small" /></IconButton>
+                                </div>
+                            </div>
+                            <div className={styles.waitingPanelList}>
+                                {lobby.waitingUsers.length === 0 ? (
+                                    <div className={styles.noMessages}><p>No one waiting</p></div>
+                                ) : (
+                                    lobby.waitingUsers.map(u => (
+                                        <div key={u.socketId} className={styles.waitingUserCard}>
+                                            <div className={styles.waitingUserLeft}>
+                                                <span className={styles.waitingUserAvatar}>{u.avatar}</span>
+                                                <span className={styles.waitingUserName}>{u.username}</span>
+                                            </div>
+                                            <div className={styles.waitingUserActions}>
+                                                <button className={styles.admitBtn} onClick={() => lobby.admitUser(u.socketId)}>Accept</button>
+                                                <button className={styles.rejectBtn} onClick={() => lobby.rejectUser(u.socketId)}>Reject</button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </aside>
+                    )}
 
                     {pinnedVideo && pinnedVideoObj ? (
                         <div className={styles.spotlightLayout}>
@@ -473,6 +555,7 @@ export default function VideoMeetComponent() {
                         <span style={{ marginRight: '0.3rem' }}>{getAvatar()}</span>
                         {username ? `${username} (You)` : 'You'}
                         {room.handRaised && <span> ✋</span>}
+                        {lobby.isHost && <span className={styles.hostBadge}>Host</span>}
                     </div>
 
                     {showModal && (
@@ -542,6 +625,13 @@ export default function VideoMeetComponent() {
                                     <IconButton onClick={() => { setModal(!showModal); chat.setNewMessages(0) }} aria-label={`Chat${chat.newMessages > 0 ? `, ${chat.newMessages} unread messages` : ''}`} aria-pressed={showModal} className={showModal ? styles.controlBtnActive : styles.controlBtn}><ChatIcon aria-hidden="true" /></IconButton>
                                 </Badge>
                             </Tooltip>
+                            {lobby.isHost && (
+                                <Tooltip title="Waiting Room" arrow>
+                                    <Badge badgeContent={lobby.waitingUsers.length} max={99} color="warning">
+                                        <IconButton onClick={() => setShowWaitingPanel(prev => !prev)} aria-label="Waiting room" className={showWaitingPanel ? styles.controlBtnActive : styles.controlBtn}><PeopleIcon aria-hidden="true" /></IconButton>
+                                    </Badge>
+                                </Tooltip>
+                            )}
                             <Tooltip title="End Call (E)" arrow><IconButton onClick={handleEndCall} aria-label="End call" className={styles.controlBtnEnd}><CallEndIcon aria-hidden="true" /></IconButton></Tooltip>
                         </div>
                         <div className={styles.controlsRight}>

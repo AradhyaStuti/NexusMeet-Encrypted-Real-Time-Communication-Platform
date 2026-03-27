@@ -4,6 +4,7 @@
  * Responsibilities:
  *   - Create the Socket.IO server
  *   - Handle join-call / signal / disconnect at the room level
+ *   - Waiting room: first joiner is host, others wait for admission
  *   - Delegate chat events   → socketHandlers/chat.js
  *   - Delegate SFU signaling → socketHandlers/sfu.js
  *
@@ -17,12 +18,70 @@ import { SfuRoom } from "../sfu/room.js";
 import {
     rooms, messages, roomLastActivity,
     socketRoom, sfuRooms, clearRateLimitState,
+    roomHosts, waitingRoom,
 } from "./socketHandlers/state.js";
 import { registerChatHandlers } from "./socketHandlers/chat.js";
 import { registerSfuHandlers } from "./socketHandlers/sfu.js";
 
 // Re-export so existing tests keep working without path changes
 export { isRateLimited } from "./socketHandlers/state.js";
+
+/** Normalize a raw path from the client */
+function normalizePath(rawPath) {
+    let path = String(rawPath);
+    try { path = new URL(path).pathname; } catch { /* already a pathname */ }
+    return path.toLowerCase().replace(/\/+$/, "") || "/";
+}
+
+/** Add a user fully into a room (used for host auto-join and admitted users) */
+async function addUserToRoom(socket, io, path, username, avatar) {
+    const sfuEnabled = isSfuAvailable();
+
+    socket.join(path);
+    socketRoom.set(socket.id, path);
+
+    if (!rooms.has(path)) rooms.set(path, new Map());
+    rooms.get(path).set(socket.id, { username, avatar });
+    roomLastActivity.set(path, Date.now());
+
+    const participants = [...rooms.get(path)].map(([sid, info]) => ({ socketId: sid, ...info }));
+
+    if (sfuEnabled) {
+        try {
+            if (!sfuRooms.has(path)) {
+                const sfuRoom = new SfuRoom(path);
+                await sfuRoom.init();
+                sfuRooms.set(path, sfuRoom);
+            }
+            sfuRooms.get(path).addPeer(socket.id);
+        } catch (err) {
+            logger.error("SFU room init failed", { error: err.message });
+        }
+    }
+
+    io.to(path).emit("user-joined", socket.id, participants);
+
+    // Replay message history to the new joiner
+    if (messages.has(path)) {
+        for (const msg of messages.get(path)) {
+            socket.emit("chat-message", msg.data, msg.sender, msg.socketId, msg.timestamp);
+        }
+    }
+
+    logger.info("User joined room", {
+        socketId: socket.id, username,
+        room: path.slice(-20), participants: participants.length, sfu: sfuEnabled,
+    });
+}
+
+/** Send the current waiting list to the host */
+function sendWaitingListToHost(io, path) {
+    const hostId = roomHosts.get(path);
+    if (!hostId) return;
+    const waiting = waitingRoom.get(path);
+    const list = waiting ? [...waiting].map(([sid, info]) => ({ socketId: sid, ...info })) : [];
+    io.to(hostId).emit("waiting-room-update", list);
+}
 
 export const connectToSocket = (server) => {
     const io = new Server(server, {
@@ -35,71 +94,111 @@ export const connectToSocket = (server) => {
         pingTimeout: 20_000,
     });
 
-    const sfuEnabled = isSfuAvailable();
-
     io.on("connection", (socket) => {
-        logger.info("Socket connected", { socketId: socket.id, sfu: sfuEnabled });
+        logger.info("Socket connected", { socketId: socket.id, sfu: isSfuAvailable() });
 
-        // ── Join room ──────────────────────────────────────────────────────
+        // ── Join room (with waiting room) ────────────────────────────────
         socket.on("join-call", async (rawPath, username = "Guest", avatar = "😊") => {
             username = String(username).slice(0, 40) || "Guest";
             avatar   = String(avatar).slice(0, 4)   || "😊";
-
-            // Normalize: extract pathname only (strip protocol/host/port),
-            // lowercase, and remove trailing slash so all clients match the same room.
-            let path = String(rawPath);
-            try { path = new URL(path).pathname; } catch { /* already a pathname */ }
-            path = path.toLowerCase().replace(/\/+$/, "") || "/";
+            const path = normalizePath(rawPath);
 
             leaveCurrentRoom(socket, io);
 
-            socket.join(path);
+            // First person becomes host — joins immediately
+            if (!roomHosts.has(path) || !rooms.has(path) || rooms.get(path).size === 0) {
+                roomHosts.set(path, socket.id);
+                await addUserToRoom(socket, io, path, username, avatar);
+                socket.emit("host-status", true);
+                logger.info("User is host", { socketId: socket.id, room: path.slice(-20) });
+                return;
+            }
+
+            // Otherwise — put in waiting room
+            if (!waitingRoom.has(path)) waitingRoom.set(path, new Map());
+            waitingRoom.get(path).set(socket.id, { username, avatar });
+            // Track the path for this socket so we can clean up on disconnect
             socketRoom.set(socket.id, path);
 
-            if (!rooms.has(path)) rooms.set(path, new Map());
-            rooms.get(path).set(socket.id, { username, avatar });
-            roomLastActivity.set(path, Date.now());
-
-            const participants = [...rooms.get(path)].map(([sid, info]) => ({ socketId: sid, ...info }));
-
-            if (sfuEnabled) {
-                try {
-                    if (!sfuRooms.has(path)) {
-                        const sfuRoom = new SfuRoom(path);
-                        await sfuRoom.init();
-                        sfuRooms.set(path, sfuRoom);
-                    }
-                    sfuRooms.get(path).addPeer(socket.id);
-                } catch (err) {
-                    logger.error("SFU room init failed", { error: err.message });
-                }
-            }
-
-            io.to(path).emit("user-joined", socket.id, participants);
-
-            // Replay message history to the new joiner
-            if (messages.has(path)) {
-                for (const msg of messages.get(path)) {
-                    socket.emit("chat-message", msg.data, msg.sender, msg.socketId, msg.timestamp);
-                }
-            }
-
-            logger.info("User joined room", {
-                socketId: socket.id, username,
-                room: path.slice(-20), participants: participants.length, sfu: sfuEnabled,
-            });
+            socket.emit("waiting-room-status", { status: "waiting" });
+            sendWaitingListToHost(io, path);
+            logger.info("User in waiting room", { socketId: socket.id, username, room: path.slice(-20) });
         });
 
-        // ── P2P signaling ──────────────────────────────────────────────────
+        // ── Host admits a user ───────────────────────────────────────────
+        socket.on("admit-user", async (targetSocketId) => {
+            const path = socketRoom.get(socket.id);
+            if (!path || roomHosts.get(path) !== socket.id) return;
+
+            const waiting = waitingRoom.get(path);
+            if (!waiting || !waiting.has(targetSocketId)) return;
+
+            const { username, avatar } = waiting.get(targetSocketId);
+            waiting.delete(targetSocketId);
+            if (waiting.size === 0) waitingRoom.delete(path);
+
+            // Remove the temporary socketRoom entry (addUserToRoom will re-set it)
+            socketRoom.delete(targetSocketId);
+
+            const targetSocket = io.sockets.sockets.get(targetSocketId);
+            if (!targetSocket) return;
+
+            targetSocket.emit("waiting-room-status", { status: "admitted" });
+            await addUserToRoom(targetSocket, io, path, username, avatar);
+            sendWaitingListToHost(io, path);
+        });
+
+        // ── Host rejects a user ──────────────────────────────────────────
+        socket.on("reject-user", (targetSocketId) => {
+            const path = socketRoom.get(socket.id);
+            if (!path || roomHosts.get(path) !== socket.id) return;
+
+            const waiting = waitingRoom.get(path);
+            if (!waiting || !waiting.has(targetSocketId)) return;
+
+            waiting.delete(targetSocketId);
+            if (waiting.size === 0) waitingRoom.delete(path);
+
+            socketRoom.delete(targetSocketId);
+
+            const targetSocket = io.sockets.sockets.get(targetSocketId);
+            if (targetSocket) {
+                targetSocket.emit("waiting-room-status", { status: "rejected" });
+            }
+            sendWaitingListToHost(io, path);
+        });
+
+        // ── Host admits all waiting users ────────────────────────────────
+        socket.on("admit-all", async () => {
+            const path = socketRoom.get(socket.id);
+            if (!path || roomHosts.get(path) !== socket.id) return;
+
+            const waiting = waitingRoom.get(path);
+            if (!waiting) return;
+
+            for (const [sid, { username, avatar }] of [...waiting]) {
+                waiting.delete(sid);
+                socketRoom.delete(sid);
+                const targetSocket = io.sockets.sockets.get(sid);
+                if (targetSocket) {
+                    targetSocket.emit("waiting-room-status", { status: "admitted" });
+                    await addUserToRoom(targetSocket, io, path, username, avatar);
+                }
+            }
+            waitingRoom.delete(path);
+            sendWaitingListToHost(io, path);
+        });
+
+        // ── P2P signaling ────────────────────────────────────────────────
         socket.on("signal", (toId, message) => {
             io.to(toId).emit("signal", socket.id, message);
         });
 
-        // ── Delegate to focused handler modules ────────────────────────────
+        // ── Delegate to focused handler modules ──────────────────────────
         registerChatHandlers(socket, io);
         registerSfuHandlers(socket, io);
 
-        // ── Disconnect ─────────────────────────────────────────────────────
+        // ── Disconnect ───────────────────────────────────────────────────
         socket.on("disconnect", () => {
             logger.info("Socket disconnected", { socketId: socket.id });
             leaveCurrentRoom(socket, io);
@@ -117,6 +216,16 @@ function leaveCurrentRoom(socket, io) {
     if (!path) return;
 
     socketRoom.delete(socket.id);
+
+    // Remove from waiting room if they were waiting
+    const waiting = waitingRoom.get(path);
+    if (waiting && waiting.has(socket.id)) {
+        waiting.delete(socket.id);
+        if (waiting.size === 0) waitingRoom.delete(path);
+        sendWaitingListToHost(io, path);
+        socket.leave(path);
+        return; // wasn't in the actual room, just waiting
+    }
 
     // SFU cleanup
     const sfuRoom = sfuRooms.get(path);
@@ -136,10 +245,37 @@ function leaveCurrentRoom(socket, io) {
     if (room) {
         room.delete(socket.id);
         io.to(path).emit("user-left", socket.id);
+
+        // Host left — promote next participant
+        if (roomHosts.get(path) === socket.id) {
+            if (room.size > 0) {
+                const newHostId = room.keys().next().value;
+                roomHosts.set(path, newHostId);
+                io.to(newHostId).emit("host-status", true);
+                sendWaitingListToHost(io, path);
+                logger.info("Host promoted", { newHost: newHostId, room: path.slice(-20) });
+            } else {
+                roomHosts.delete(path);
+                // Auto-admit any waiting users since room is empty
+                const pendingWaiting = waitingRoom.get(path);
+                if (pendingWaiting && pendingWaiting.size > 0) {
+                    // Reject all since nobody is left to host
+                    for (const [sid] of pendingWaiting) {
+                        const ws = io.sockets.sockets.get(sid);
+                        if (ws) ws.emit("waiting-room-status", { status: "rejected" });
+                        socketRoom.delete(sid);
+                    }
+                    waitingRoom.delete(path);
+                }
+            }
+        }
+
         if (room.size === 0) {
             rooms.delete(path);
             messages.delete(path);
             roomLastActivity.delete(path);
+            roomHosts.delete(path);
+            waitingRoom.delete(path);
         }
     }
 

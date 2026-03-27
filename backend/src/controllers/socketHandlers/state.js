@@ -17,6 +17,10 @@ export const socketRoom = new Map();      // socketId → roomPath
 // ── SFU rooms ──
 export const sfuRooms = new Map();        // roomPath → SfuRoom
 
+// ── Waiting room ──
+export const roomHosts = new Map();       // roomPath → socketId (the host/creator)
+export const waitingRoom = new Map();     // roomPath → Map<socketId, {username, avatar}>
+
 // ── Chat rate limiting ──
 const socketMessageTimestamps = new Map();
 const MESSAGE_RATE_LIMIT = 10;
@@ -47,6 +51,8 @@ setInterval(() => {
             roomLastActivity.delete(path);
             const sfuRoom = sfuRooms.get(path);
             if (sfuRoom) { sfuRoom.close(); sfuRooms.delete(path); }
+            roomHosts.delete(path);
+            waitingRoom.delete(path);
             logger.info("Room purged (TTL expired)", { room: path.slice(-20) });
         }
     }
