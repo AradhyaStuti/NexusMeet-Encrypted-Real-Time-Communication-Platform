@@ -241,6 +241,11 @@ export default function VideoMeetComponent() {
                 const participantNames = {}
                 participants.forEach(p => { participantNames[p.socketId] = { username: p.username, avatar: p.avatar } })
 
+                // Re-request E2E key after being admitted (we're now in the room)
+                if (id === socketIdRef.current && participants.length > 1) {
+                    setTimeout(() => chat.requestKeyFromPeers(), 200)
+                }
+
                 if (sfuModeRef.current && id === socketIdRef.current) {
                     try {
                         sfuClientRef.current = new SfuClient(socketRef.current)
