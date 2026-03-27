@@ -187,41 +187,48 @@
     to   { transform: rotate(8deg); }
 }
 
-/* Pin button */
+/* Pin button — small icon, only visible on hover */
 .pinBtn {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 6px;
+    right: 6px;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     color: white;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 600;
-    padding: 4px 10px;
+    padding: 3px 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     z-index: 10;
     transition: all 0.15s ease;
     font-family: inherit;
+    opacity: 0;
+}
+
+.remoteVideoWrap:hover .pinBtn {
+    opacity: 1;
 }
 
 .pinBtn:hover {
     transform: scale(1.08);
 }
 
-/* Hover overlay */
+/* Hover overlay — volume controls only on hover */
 .videoHoverOverlay {
     position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(5,13,24,0.82) 0%, transparent 52%);
-    border-radius: 14px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(5,13,24,0.75) 0%, transparent 100%);
+    border-radius: 0 0 14px 14px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 10px 12px;
-    gap: 7px;
+    padding: 6px 8px;
+    gap: 4px;
     opacity: 0;
     transition: opacity 0.18s;
     pointer-events: none;
@@ -235,26 +242,26 @@
 .hoverVolumeRow {
     display: flex;
     align-items: center;
-    gap: 7px;
-    background: rgba(5,13,24,0.65);
+    gap: 5px;
+    background: rgba(5,13,24,0.55);
     backdrop-filter: blur(6px);
-    border-radius: 9px;
-    padding: 5px 10px;
+    border-radius: 6px;
+    padding: 3px 8px;
     border: 1px solid rgba(255,255,255,0.06);
 }
 
 .volumeSlider {
     flex: 1;
-    height: 3px;
+    height: 2px;
     accent-color: #0ea5e9;
     cursor: pointer;
-    min-width: 60px;
+    min-width: 40px;
 }
 
 .volumeVal {
-    font-size: 0.71rem;
+    font-size: 0.6rem;
     color: #8b9ab0;
-    min-width: 30px;
+    min-width: 24px;
     text-align: right;
 }
 
@@ -328,16 +335,22 @@
 
 .spotlightVolumeWrap {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 8px;
+    right: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: rgba(5,13,24,0.72);
+    gap: 5px;
+    background: rgba(5,13,24,0.65);
     backdrop-filter: blur(10px);
-    border-radius: 10px;
-    padding: 6px 11px;
-    border: 1px solid rgba(14,165,233,0.15);
+    border-radius: 7px;
+    padding: 4px 8px;
+    border: 1px solid rgba(14,165,233,0.12);
+    opacity: 0;
+    transition: opacity 0.18s;
+}
+
+.spotlightMain:hover .spotlightVolumeWrap {
+    opacity: 1;
 }
 
 /* Thumbnail strip */
