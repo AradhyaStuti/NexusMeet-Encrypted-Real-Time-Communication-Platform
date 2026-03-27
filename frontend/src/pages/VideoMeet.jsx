@@ -194,9 +194,15 @@ export default function VideoMeetComponent() {
 
     // ── Socket connection ──
     const connectToSocketServer = useCallback(() => {
+        // Prevent duplicate connections
+        if (socketRef.current) {
+            socketRef.current.disconnect()
+            socketRef.current = null
+        }
         socketRef.current = io.connect(server_url, {
             transports: ['websocket', 'polling'],
             withCredentials: true,
+            reconnectionAttempts: 5,
         })
         socketRef.current.on('signal', gotMessageFromServer)
 
@@ -240,11 +246,6 @@ export default function VideoMeetComponent() {
             socketRef.current.on('user-joined', async (id, participants) => {
                 const participantNames = {}
                 participants.forEach(p => { participantNames[p.socketId] = { username: p.username, avatar: p.avatar } })
-
-                // Re-request E2E key after being admitted (we're now in the room)
-                if (id === socketIdRef.current && participants.length > 1) {
-                    setTimeout(() => chat.requestKeyFromPeers(), 200)
-                }
 
                 if (sfuModeRef.current && id === socketIdRef.current) {
                     try {
