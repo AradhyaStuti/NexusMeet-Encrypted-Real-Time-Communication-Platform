@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { encryptMessage, decryptMessage } from '../utils/encryption'
+import { decryptMessage } from '../utils/encryption'
 
 /**
  * Manages chat state with optional E2E encryption.

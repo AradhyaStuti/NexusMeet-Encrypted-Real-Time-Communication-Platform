@@ -353,7 +353,7 @@ export default function VideoMeetComponent() {
     const handleSendMessage = useCallback(() => {
         chat.sendMessage(chat.message, username)
         chat.setMessage('')
-    }, [chat])
+    }, [chat, username])
 
     const handleChatKeyDown = useCallback((e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -367,7 +367,6 @@ export default function VideoMeetComponent() {
     const pinnedVideoObj = pinnedVideo ? videos.find(v => v.socketId === pinnedVideo) : null
     const networkIcon = networkQuality === 'good' ? '🟢' : networkQuality === 'fair' ? '🟡' : '🔴'
     const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-    const inMeeting = !askForUsername && lobby.waitingStatus !== 'waiting' && lobby.waitingStatus !== 'rejected'
     const getName = (socketId) => {
         const p = participantNamesRef.current[socketId]
         return p ? p.username : 'Participant'

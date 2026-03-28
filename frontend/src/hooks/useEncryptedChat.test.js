@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react'
 import { useEncryptedChat } from '../hooks/useEncryptedChat'
-import { getOrCreateRoomKey, encryptMessage, decryptMessage } from '../utils/encryption'
+import { getOrCreateRoomKey, decryptMessage } from '../utils/encryption'
 
 // Mock encryption utilities
 jest.mock('../utils/encryption', () => ({
