@@ -36,19 +36,23 @@ started as a basic P2P thing but I ended up adding an SFU layer with mediasoup s
 
 ```
 browser ──WebSocket──▶ Express + Socket.IO ──▶ MongoDB (users, history)
-   │                        │                         │
-   │ (P2P or SFU)          ├── mediasoup workers      ├── Redis (room state)
-   │                        │   (1 per core, max 4)   │   (optional, in-memory fallback)
+   │                        │
+   │ (P2P or SFU)          ├── mediasoup workers (1 per core, max 4)
+   │                        ├── Redis (room state write-through + Socket.IO adapter)
    └──STUN/TURN────────────┘
 ```
 
-**design decisions and why:**
+**design decisions and tradeoffs:**
 
-- **Dual-mode media (P2P + SFU):** P2P mesh is simpler but scales O(n^2) — every participant sends to every other. mediasoup SFU breaks that: one upload per person, server fans out. I implemented both because mediasoup requires a native binary that doesn't run everywhere, so P2P is the universal fallback. The frontend checks `/api/v1/sfu-status` before joining and picks the right mode automatically.
+- **Dual-mode media (P2P + SFU):** P2P mesh is simpler but scales O(n^2) — every participant sends to every other. mediasoup SFU breaks that: one upload per person, server fans out. I implemented both because mediasoup requires a native C++ binary that doesn't run everywhere, so P2P is the universal fallback. The frontend checks `/api/v1/sfu-status` before joining and picks the right mode automatically.
 
-- **In-memory Maps as source of truth, Redis as write-through cache:** Socket.IO event handlers are synchronous — making every room lookup `await redis.hGet(...)` would add latency to every signaling message. So in-memory Maps handle the hot path, and Redis mirrors state for horizontal scaling. The tradeoff: if Redis silently fails (`.catch(() => {})`), instances can drift. In a real production setup, I'd flip this — Redis as primary, in-memory as cache — and add failure monitoring.
+- **In-memory Maps as source of truth, Redis as write-through cache:** Socket.IO event handlers are synchronous — making every room lookup `await redis.hGet(...)` would add latency to every signaling message. So in-memory Maps handle the hot path, and Redis mirrors state via the `@socket.io/redis-adapter` for cross-instance event broadcasting. Redis write failures are logged (not silently swallowed), but the in-memory Maps remain the authority. For true horizontal scaling, this would need to be inverted — Redis as primary, in-memory as cache.
+
+- **SFU worker auto-restart:** If a mediasoup worker process dies, it's replaced after a 2-second delay. Existing rooms on that worker are lost, but new rooms get a healthy worker. No manual intervention needed.
 
 - **Waiting room with host promotion:** First joiner becomes host. Others wait. If the host disconnects, the next participant auto-promotes and gets the waiting list. If the room empties while people wait, they get rejected (no orphaned waiters).
+
+- **Reconnection recovery:** Socket.IO event listeners are registered once (not inside the `connect` handler), so reconnects don't create duplicate listeners. On reconnect, stale P2P connections are cleaned up and the client re-emits `join-call` to rejoin the room.
 
 - **Component architecture:** The frontend `VideoMeet` was a 668-line monolith. Split into 6 focused components (PreJoinLobby, WaitingScreen, RejectedScreen, VideoGrid, ChatPanel, MeetingControls) with VideoMeet as the state orchestrator.
 
@@ -56,7 +60,7 @@ browser ──WebSocket──▶ Express + Socket.IO ──▶ MongoDB (users, h
 
 **frontend** — React 18, MUI dark theme, mediasoup-client, Socket.io, Web Crypto API (AES-256-GCM), DOMPurify
 
-**backend** — Express, mediasoup (SFU worker pool), Socket.io, MongoDB, Redis (optional), JWT + bcrypt, Helmet + HSTS, rate limiting, gzip compression, Winston structured logs
+**backend** — Express, mediasoup (SFU worker pool), Socket.io (`@socket.io/redis-adapter`), MongoDB, Redis (optional), JWT + bcrypt, Helmet + HSTS, rate limiting (env-injectable via `RATE_LIMIT_MAX`), gzip compression, Winston structured logs
 
 ## how the SFU works
 
@@ -64,7 +68,9 @@ the server tries to spin up mediasoup workers on start (one per CPU core, max 4)
 
 if mediasoup fails (wrong platform, no UDP ports, whatever), it falls back to P2P. the frontend hits `/api/v1/sfu-status` before joining and picks the right mode. so it never breaks — worst case you get the old P2P behavior.
 
-**what this means for scaling:** a single instance handles ~50-100 concurrent rooms. to go beyond that you'd need: Redis as primary state store (not optional), Socket.IO Redis adapter for cross-instance event broadcasting, and sticky sessions so participants in the same room hit the same mediasoup worker.
+if a worker dies at runtime, it's automatically replaced after 2 seconds. rooms that were on the dead worker are lost, but the system stays up.
+
+**what this means for scaling:** a single instance handles ~50-100 concurrent rooms. to go beyond that you'd need: Redis as the primary state store (not optional), sticky sessions so participants in the same room hit the same mediasoup worker, and a routing layer to pin SFU rooms to specific instances. The Socket.IO Redis adapter is already wired so cross-instance event broadcasting works — the missing piece is making Redis the source of truth instead of in-memory Maps.
 
 ## the E2E encryption part
 
@@ -96,7 +102,12 @@ the frontend fetches ICE config dynamically from `/api/v1/ice-config`, so you ca
 
 ## Redis (optional)
 
-Redis mirrors room state (participants, hosts, waiting room, chat history, rate limits) for multi-instance deployments. without `REDIS_URL`, everything runs in-memory on a single instance — no Redis required for development.
+Redis serves two purposes:
+
+1. **Room state write-through** — mirrors participants, hosts, waiting room, chat history, and rate limits to Redis so data survives if the process restarts. Write failures are logged, not silently dropped.
+2. **Socket.IO Redis adapter** — `@socket.io/redis-adapter` is wired so `io.to(room).emit(...)` reaches clients connected to other server instances.
+
+Without `REDIS_URL`, everything runs in-memory on a single instance — no Redis required for development.
 
 ```bash
 # .env
@@ -140,7 +151,7 @@ npm install && npm start
 
 ## tests
 
-247 tests across backend + frontend, all passing.
+247 tests across backend + frontend.
 
 ```bash
 cd backend && npm test
@@ -152,7 +163,25 @@ cd frontend && npm test
 # useEncryptedChat), SfuClient, encryption utils, ErrorBoundary
 ```
 
-there's a GitHub Actions pipeline that runs lint + tests + Docker build on every push.
+GitHub Actions runs lint + tests + Docker build on every push. CI uses `cancel-in-progress` concurrency so stale runs don't pile up, and caches the mongodb-memory-server binary to avoid a ~100MB download on each run.
+
+**no E2E browser tests (Playwright/Cypress).** the test suite covers units, hooks, integration (real HTTP + real MongoDB), and socket events, but there's no automated test that proves a video call actually connects end-to-end in a real browser. that's the biggest testing gap.
+
+## environment variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MONGO_URI` | yes | — | MongoDB connection string |
+| `JWT_SECRET` | yes | — | Secret for signing JWTs |
+| `PORT` | no | `8000` | Server port |
+| `REDIS_URL` | no | — | Redis connection (enables room state persistence + Socket.IO adapter) |
+| `TURN_URL` | no | — | TURN server URL(s), comma-separated |
+| `TURN_USERNAME` | no | — | TURN credentials |
+| `TURN_CREDENTIAL` | no | — | TURN credentials |
+| `TURN_URL_2` | no | — | Second TURN server (TCP fallback) |
+| `MEDIASOUP_ANNOUNCED_IP` | no | `127.0.0.1` | Public IP for mediasoup ICE candidates |
+| `DISABLE_SFU` | no | — | Set `true` to force P2P mode |
+| `RATE_LIMIT_MAX` | no | `30` | Max auth requests per 15-minute window |
 
 ## API
 
@@ -182,14 +211,14 @@ Every response includes an `x-request-id` header for tracing.
 backend/src/
   app.js                            Express app, middleware, routes, Redis init
   controllers/
-    socketManager.js                Socket.IO orchestrator (join/signal/disconnect/waiting room)
+    socketManager.js                Socket.IO orchestrator + Redis adapter setup
     socketHandlers/
       state.js                      In-memory Maps (source of truth), rate limiter, room TTL
       chat.js                       chat-message, hand-raise, reaction, typing
       sfu.js                        mediasoup signalling (8 events, guard wrapper)
   store/
-    roomStore.js                    Redis-backed room state (write-through)
-  sfu/          config.js  worker.js  room.js
+    roomStore.js                    Redis-backed room state (write-through, logged failures)
+  sfu/          config.js  worker.js (auto-restart)  room.js
   models/       user.model.js  meeting.model.js
   utils/        jwt.js  logger.js  redis.js
   routes/       users.routes.js
@@ -199,7 +228,7 @@ backend/docs/
   socket-events.md                  All 20 Socket.IO events documented
 
 frontend/src/
-  pages/        VideoMeet.jsx (orchestrator)
+  pages/        VideoMeet.jsx (orchestrator — reconnection-aware)
   components/   PreJoinLobby  WaitingScreen  RejectedScreen  VideoGrid  ChatPanel  MeetingControls
                 ErrorBoundary  AvatarPicker  Logo
   hooks/        useRoomControls  useNetworkQuality  useEncryptedChat  useMediaDevices  useWaitingRoom
@@ -209,11 +238,13 @@ frontend/src/
 
 ## known limitations
 
-- **Redis is write-through, not primary.** In-memory Maps are the real source of truth. Redis failures are silently swallowed. For true horizontal scaling, this needs to be inverted.
+- **Redis is write-through, not primary.** In-memory Maps are the source of truth. Redis write failures are logged but don't block the call. For true multi-instance scaling, Redis needs to become the primary store.
 - **E2E chat encryption is opt-in.** Only works when users join via the full URL with the hash. Code-based joins default to plain text.
 - **No TURN server included.** STUN only gets you through simple NATs. Corporate firewalls need TURN, which costs bandwidth and money.
 - **SFU needs native dependencies.** mediasoup compiles C++ — doesn't work on all hosting platforms.
-- **Rooms are ephemeral.** No persistent room state beyond the Redis TTL (24h). Restart the server, rooms are gone.
+- **Rooms are ephemeral.** No persistent room state beyond the Redis TTL (24h). Restart the server without Redis, rooms are gone.
+- **No E2E browser tests.** No Playwright/Cypress tests to verify an actual video call connects. Unit + integration coverage is solid, but the browser-level gap is real.
+- **CORS allows all origins.** `origin: true` reflects any requesting origin. This is intentional — meeting links need to work from anywhere — but means any site can make credentialed requests to the API.
 
 ---
 
