@@ -141,6 +141,18 @@ export class SfuClient {
         }
     }
 
+    /** Request a specific simulcast layer for all consumers.
+     *  spatialLayer: 0 = low (quarter), 1 = mid (half), 2 = high (full) */
+    setPreferredLayer(spatialLayer) {
+        for (const [consumerId] of this.consumers) {
+            this.socket.emit("set-consumer-layers", {
+                consumerId,
+                spatialLayer,
+                temporalLayer: spatialLayer, // match temporal to spatial
+            }, () => {});
+        }
+    }
+
     /** Clean up everything */
     close() {
         for (const [, producer] of this.producers) producer.close();

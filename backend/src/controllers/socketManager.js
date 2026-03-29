@@ -92,7 +92,7 @@ function sendWaitingListToHost(io, path) {
     io.to(hostId).emit("waiting-room-update", list);
 }
 
-export const connectToSocket = (server) => {
+export const connectToSocket = async (server) => {
     const io = new Server(server, {
         cors: {
             origin: true,
@@ -103,21 +103,25 @@ export const connectToSocket = (server) => {
         pingTimeout: 20_000,
     });
 
-    // Attach Redis adapter so events propagate across server instances
+    // Attach Redis adapter BEFORE accepting connections so the first
+    // socket always gets cross-instance broadcasting.
     const redis = getRedis();
     if (redis) {
-        const pubClient = redis.duplicate();
-        const subClient = redis.duplicate();
-        Promise.all([pubClient.connect(), subClient.connect()])
-            .then(() => {
-                io.adapter(createAdapter(pubClient, subClient));
-                logger.info("Socket.IO Redis adapter attached");
-            })
-            .catch(err => logger.warn("Socket.IO Redis adapter failed, using in-memory", { error: err.message }));
+        try {
+            const pubClient = redis.duplicate();
+            const subClient = redis.duplicate();
+            await Promise.all([pubClient.connect(), subClient.connect()]);
+            io.adapter(createAdapter(pubClient, subClient));
+            logger.info("Socket.IO Redis adapter attached");
+        } catch (err) {
+            logger.warn("Socket.IO Redis adapter failed, using in-memory", { error: err.message });
+        }
     }
 
     io.on("connection", (socket) => {
-        logger.info("Socket connected", { socketId: socket.id, sfu: isSfuAvailable() });
+        // Attach a request-ID to every socket for tracing (mirrors HTTP x-request-id)
+        socket.requestId = socket.handshake.headers["x-request-id"] || socket.id;
+        logger.info("Socket connected", { socketId: socket.id, requestId: socket.requestId, sfu: isSfuAvailable() });
 
         // ── Join room (with waiting room) ────────────────────────────────
         socket.on("join-call", async (rawPath, username = "Guest", avatar = "😊") => {

@@ -11,7 +11,10 @@ let mediasoupModule = null;
  * Create a single mediasoup worker with a death handler that replaces it.
  */
 async function createWorker(index) {
-    const worker = await mediasoupModule.createWorker(workerSettings);
+    const workerPromise = mediasoupModule.createWorker(workerSettings);
+    const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("createWorker timed out after 10s")), 10_000));
+    const worker = await Promise.race([workerPromise, timeout]);
 
     worker.on("died", () => {
         logger.error(`mediasoup worker ${worker.pid} died`, { index });

@@ -33,7 +33,7 @@ export default function VideoMeetComponent() {
     // ── Core refs ──
     const socketRef = useRef(null)
     const socketIdRef = useRef(null)
-    const localVideoref = useRef(null)
+    const localVideoRef = useRef(null)
     const connectionsRef = useRef({})
     const iceConfigRef = useRef(DEFAULT_ICE_CONFIG)
     const sfuClientRef = useRef(null)
@@ -51,7 +51,7 @@ export default function VideoMeetComponent() {
     const participantNamesRef = useRef({}) // socketId → { username, avatar }
 
     // ── Custom hooks ──
-    const media = useMediaDevices({ localVideoRef: localVideoref, connectionsRef, socketRef })
+    const media = useMediaDevices({ localVideoRef, connectionsRef, socketRef })
     const { networkQuality } = useNetworkQuality({ connectionsRef, active: !askForUsername })
     const chat = useEncryptedChat({ socketRef, socketIdRef })
     const room = useRoomControls({ socketRef, socketIdRef, remoteVideoElems })
@@ -76,6 +76,13 @@ export default function VideoMeetComponent() {
     useEffect(() => {
         if (media.screen !== undefined) media.getDisplayMedia(media.screen)
     }, [media.screen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Adaptive simulcast: switch SFU layer based on network quality ──
+    useEffect(() => {
+        if (!sfuClientRef.current) return
+        const layer = networkQuality === 'good' ? 2 : networkQuality === 'fair' ? 1 : 0
+        sfuClientRef.current.setPreferredLayer(layer)
+    }, [networkQuality])
 
     // ── Keyboard shortcuts ──
     // Handlers are stable callbacks — only rebind when meeting state changes
@@ -367,11 +374,11 @@ export default function VideoMeetComponent() {
 
     // ── Render ──
     if (askForUsername) {
-        return <PreJoinLobby localVideoRef={localVideoref} username={username} setUsername={setUsername} connect={connect} />
+        return <PreJoinLobby localVideoRef={localVideoRef} username={username} setUsername={setUsername} connect={connect} />
     }
 
     if (lobby.waitingStatus === 'waiting') {
-        return <WaitingScreen localVideoRef={localVideoref} username={username} onLeave={handleEndCall} />
+        return <WaitingScreen localVideoRef={localVideoRef} username={username} onLeave={handleEndCall} />
     }
 
     if (lobby.waitingStatus === 'rejected') {
@@ -428,7 +435,7 @@ export default function VideoMeetComponent() {
 
             <VideoGrid videos={videos} room={room} getName={getName} getAvatarFor={getAvatarFor} />
 
-            <video className={room.localVideoLarge ? styles.meetUserVideoLarge : styles.meetUserVideo} ref={localVideoref} autoPlay muted onClick={room.handleLocalVideoClick} title={room.localVideoLarge ? 'Click to minimize' : 'Click to enlarge your video'} />
+            <video className={room.localVideoLarge ? styles.meetUserVideoLarge : styles.meetUserVideo} ref={localVideoRef} autoPlay muted onClick={room.handleLocalVideoClick} title={room.localVideoLarge ? 'Click to minimize' : 'Click to enlarge your video'} />
             <div className={room.localVideoLarge ? styles.localLabelLarge : styles.localLabel}>
                 <span style={{ marginRight: '0.3rem' }}>{getAvatar()}</span>
                 {username ? `${username} (You)` : 'You'}

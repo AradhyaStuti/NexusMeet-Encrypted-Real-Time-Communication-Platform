@@ -18,7 +18,7 @@ let port
 
 before(async () => {
     httpServer = createServer()
-    connectToSocket(httpServer)
+    await connectToSocket(httpServer)
     await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve))
     port = httpServer.address().port
 })

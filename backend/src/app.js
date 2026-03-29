@@ -156,8 +156,7 @@ app.get("/api/v1/metrics", (_req, res) => {
     });
 });
 
-// ── Socket.io ──
-connectToSocket(server, ["*"]);
+// ── Socket.io (initialized in start() so Redis adapter can be awaited) ──
 
 // ── Serve frontend in production ──
 import path from "node:path";
@@ -218,6 +217,9 @@ const start = async () => {
 
     // Initialize Redis (gracefully falls back to in-memory if unavailable)
     await initRedis();
+
+    // Initialize Socket.IO + Redis adapter (must be after initRedis so getRedis() works)
+    await connectToSocket(server);
 
     // Initialize mediasoup SFU workers (gracefully falls back to P2P if unavailable)
     await initWorkers();
