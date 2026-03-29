@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: UshaMeetX API
+  title: MeetSync API
   version: 2.0.0
   description: |
-    REST API for UshaMeetX — a full-stack WebRTC video conferencing platform.
+    REST API for MeetSync — a full-stack WebRTC video conferencing platform.
 
     ## Authentication
     Protected endpoints require a JWT in the `x-auth-token` header.

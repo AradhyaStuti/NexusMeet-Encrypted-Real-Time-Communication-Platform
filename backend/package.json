@@ -1,7 +1,7 @@
 {
-  "name": "ushameetx-backend",
+  "name": "meetsync-backend",
   "version": "1.0.0",
-  "description": "UshaMeetX video conferencing backend — Express, Socket.io, MongoDB",
+  "description": "MeetSync video conferencing backend — Express, Socket.io, MongoDB",
   "author": "Aradhya Stuti",
   "main": "src/app.js",
   "type": "module",

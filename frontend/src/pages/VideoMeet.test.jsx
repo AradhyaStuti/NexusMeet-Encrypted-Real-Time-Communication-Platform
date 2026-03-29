@@ -78,7 +78,7 @@ jest.mock('../utils/encryption', () => ({
     decryptMessage: jest.fn().mockResolvedValue('dec'),
 }))
 jest.mock('../components/AvatarPicker', () => ({ getAvatar: jest.fn(() => '😊') }))
-jest.mock('../components/UshaMeetXLogo', () => () => <div data-testid="logo" />)
+jest.mock('../components/MeetSyncLogo', () => () => <div data-testid="logo" />)
 
 beforeAll(() => {
     global.fetch = jest.fn().mockResolvedValue({ json: jest.fn().mockResolvedValue({ enabled: false }) })
@@ -124,9 +124,9 @@ describe('VideoMeet — lobby', () => {
         expect(screen.getByText('Ready to join?')).toBeInTheDocument()
     })
 
-    it('renders UshaMeetX brand name', () => {
+    it('renders MeetSync brand name', () => {
         renderMeet()
-        expect(screen.getByText('UshaMeetX')).toBeInTheDocument()
+        expect(screen.getByText('MeetSync')).toBeInTheDocument()
     })
 
     it('renders name input field', () => {

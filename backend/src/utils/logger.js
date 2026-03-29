@@ -18,7 +18,7 @@ const logger = winston.createLogger({
         errors({ stack: true }),
         timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
     ),
-    defaultMeta: { service: "ushameetx-api" },
+    defaultMeta: { service: "meetsync-api" },
     transports: [
         // Console — colorized human-readable
         new winston.transports.Console({

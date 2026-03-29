@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import logger from "./logger.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "ushameetx_dev_secret_change_in_production";
+const JWT_SECRET = process.env.JWT_SECRET || "meetsync_dev_secret_change_in_production";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
 /**

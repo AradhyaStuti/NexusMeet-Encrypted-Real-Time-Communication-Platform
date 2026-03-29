@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import "../App.css"
 import { Link, useNavigate } from 'react-router-dom'
-import UshaMeetXLogo from '../components/UshaMeetXLogo'
+import MeetSyncLogo from '../components/MeetSyncLogo'
 
 export default function LandingPage() {
     const navigate = useNavigate()
@@ -19,8 +19,8 @@ export default function LandingPage() {
             {/* ── Navbar ── */}
             <nav>
                 <div className='navBrand'>
-                    <UshaMeetXLogo size={36} />
-                    <h2>UshaMeetX</h2>
+                    <MeetSyncLogo size={36} />
+                    <h2>MeetSync</h2>
                 </div>
                 <div className='navlist'>
                     <button className='navGuestBtn' onClick={() => setGuestOpen(o => !o)}>
@@ -70,7 +70,7 @@ export default function LandingPage() {
                         anywhere, anytime
                     </h1>
                     <p>
-                        UshaMeetX brings high-quality video meetings to everyone.
+                        MeetSync brings high-quality video meetings to everyone.
                         Host secure, crystal-clear calls with screen sharing, live chat,
                         and instant join — no downloads required.
                     </p>
@@ -110,7 +110,7 @@ export default function LandingPage() {
                                 <div className="mockupDot red"></div>
                                 <div className="mockupDot yellow"></div>
                                 <div className="mockupDot green"></div>
-                                <span className="mockupTitle">UshaMeetX — Room #meet2024</span>
+                                <span className="mockupTitle">MeetSync — Room #meet2024</span>
                             </div>
                             <div className="mockupLive">
                                 <div className="mockupLiveDot"></div>
@@ -195,7 +195,7 @@ export default function LandingPage() {
             <div className="landingCTA">
                 <div className="landingCTAInner">
                     <h2>Ready to meet?</h2>
-                    <p>Join thousands of people already using UshaMeetX every day.</p>
+                    <p>Join thousands of people already using MeetSync every day.</p>
                     <div className="heroButtons" style={{ justifyContent: 'center' }}>
                         <Link to="/auth" className="btnPrimary">
                             Create Free Account

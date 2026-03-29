@@ -1,8 +1,8 @@
-// UshaMeetX brand mark — SVG logo component
-// The X in UshaMeetX is echoed by the crossing video-wing + lens design
+// MeetSync brand mark — SVG logo component
+// Camera + video-wing + lens design
 
-export default function UshaMeetXLogo({ size = 38 }) {
-    const id = `umx_${size}`
+export default function MeetSyncLogo({ size = 38 }) {
+    const id = `ms_${size}`
     return (
         <svg
             width={size}
@@ -50,14 +50,6 @@ export default function UshaMeetXLogo({ size = 38 }) {
 
             {/* Video wing (triangle) — the → of recording */}
             <path d="M30 15.5 L40 21.5 L30 27.5 Z" fill="white" fillOpacity="0.94" />
-
-            {/* X mark badge — bottom-right corner */}
-            <circle cx="36" cy="35" r="6.5" fill="#040d18" fillOpacity="0.55" />
-            <circle cx="36" cy="35" r="6" fill={`url(#${id}_bg)`} />
-            <text x="36" y="39" textAnchor="middle" fontSize="8.5" fontWeight="800"
-                fontFamily="'Segoe UI', system-ui, sans-serif" fill="white" fillOpacity="0.95">
-                X
-            </text>
         </svg>
     )
 }

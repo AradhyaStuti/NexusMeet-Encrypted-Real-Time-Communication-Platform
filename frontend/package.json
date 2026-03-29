@@ -1,7 +1,7 @@
 {
-  "name": "ushameetx-frontend",
+  "name": "meetsync-frontend",
   "version": "1.0.0",
-  "description": "UshaMeetX video conferencing frontend — React, WebRTC, Socket.io",
+  "description": "MeetSync video conferencing frontend — React, WebRTC, Socket.io",
   "author": "Aradhya Stuti",
   "license": "ISC",
   "private": true,

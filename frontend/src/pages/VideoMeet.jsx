@@ -20,7 +20,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import PanToolIcon from '@mui/icons-material/PanTool'
 import DOMPurify from 'dompurify'
 import server from '../environment'
-import UshaMeetXLogo from '../components/UshaMeetXLogo'
+import MeetSyncLogo from '../components/MeetSyncLogo'
 import { getAvatar } from '../components/AvatarPicker'
 import { SfuClient } from '../utils/sfuClient'
 import LockIcon from '@mui/icons-material/Lock'
@@ -383,8 +383,8 @@ export default function VideoMeetComponent() {
                 <div className={styles.lobbyContainer}>
                     <div className={styles.lobbyCard}>
                         <div className={styles.lobbyBrand}>
-                            <UshaMeetXLogo size={34} />
-                            <span className={styles.lobbyBrandName}>UshaMeetX</span>
+                            <MeetSyncLogo size={34} />
+                            <span className={styles.lobbyBrandName}>MeetSync</span>
                         </div>
                         <h2 className={styles.lobbyTitle}>Ready to join?</h2>
                         <p className={styles.lobbySubtitle}>Enter your name to join the meeting</p>
@@ -421,8 +421,8 @@ export default function VideoMeetComponent() {
                 <div className={styles.lobbyContainer}>
                     <div className={styles.waitingAdmissionCard}>
                         <div className={styles.lobbyBrand}>
-                            <UshaMeetXLogo size={34} />
-                            <span className={styles.lobbyBrandName}>UshaMeetX</span>
+                            <MeetSyncLogo size={34} />
+                            <span className={styles.lobbyBrandName}>MeetSync</span>
                         </div>
                         <div className={styles.waitingPulseRing}>
                             <div className={styles.waitingPulseInner} />
@@ -448,8 +448,8 @@ export default function VideoMeetComponent() {
                 <div className={styles.lobbyContainer}>
                     <div className={styles.waitingAdmissionCard}>
                         <div className={styles.lobbyBrand}>
-                            <UshaMeetXLogo size={34} />
-                            <span className={styles.lobbyBrandName}>UshaMeetX</span>
+                            <MeetSyncLogo size={34} />
+                            <span className={styles.lobbyBrandName}>MeetSync</span>
                         </div>
                         <div style={{ fontSize: '3rem', margin: '1.5rem 0 0.5rem', textAlign: 'center' }}>🚫</div>
                         <h2 className={styles.waitingTitle}>You were not admitted</h2>

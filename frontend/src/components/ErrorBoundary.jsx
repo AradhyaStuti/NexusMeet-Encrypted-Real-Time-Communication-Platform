@@ -1,5 +1,5 @@
 import { Component } from 'react'
-import UshaMeetXLogo from './UshaMeetXLogo'
+import MeetSyncLogo from './MeetSyncLogo'
 
 /**
  * React Error Boundary — catches render errors in child tree
@@ -52,7 +52,7 @@ export default class ErrorBoundary extends Component {
                         boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
                     }}>
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <UshaMeetXLogo size={48} />
+                            <MeetSyncLogo size={48} />
                         </div>
                         <h1 style={{
                             fontSize: '1.4rem',

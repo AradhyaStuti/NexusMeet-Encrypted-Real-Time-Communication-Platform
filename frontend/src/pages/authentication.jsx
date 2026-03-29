@@ -1,5 +1,5 @@
 import { useState, useContext } from 'react';
-import UshaMeetXLogo from '../components/UshaMeetXLogo';
+import MeetSyncLogo from '../components/MeetSyncLogo'
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { TextField, Button, Snackbar, Alert, CircularProgress } from '@mui/material';
@@ -95,7 +95,7 @@ export default function Authentication() {
                     {/* Logo */}
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                            <UshaMeetXLogo size={52} />
+                            <MeetSyncLogo size={52} />
                         </div>
                         <h1 style={{
                             fontSize: '1.55rem', fontWeight: 800,
@@ -105,7 +105,7 @@ export default function Authentication() {
                             backgroundClip: 'text',
                             marginBottom: '0.35rem',
                             letterSpacing: '-0.3px',
-                        }}>UshaMeetX</h1>
+                        }}>MeetSync</h1>
                         <p style={{ color: 'rgba(139,154,176,0.7)', fontSize: '0.88rem' }}>
                             {formState === 0 ? 'Welcome back! Sign in to continue.' : 'Create your free account today.'}
                         </p>

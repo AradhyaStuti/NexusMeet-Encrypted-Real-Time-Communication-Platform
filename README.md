@@ -1,6 +1,6 @@
 <div align="center">
 
-![UshaMeetX](./screenshots/banner.svg)
+![MeetSync](./screenshots/banner.svg)
 
 WebRTC video conferencing with mediasoup SFU and E2E encrypted chat
 
@@ -53,8 +53,8 @@ this only covers chat — the video/audio is already encrypted by WebRTC (SRTP).
 ### with Docker (recommended)
 
 ```bash
-git clone https://github.com/AradhyaStuti/UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform.git
-cd UshaMeetX-Full-Stack-WebRTC-Video-Conferencing-Platform
+git clone https://github.com/AradhyaStuti/MeetSync-Full-Stack-WebRTC-Video-Conferencing-Platform.git
+cd MeetSync-Full-Stack-WebRTC-Video-Conferencing-Platform
 
 # set required secrets
 echo "JWT_SECRET=your-secret-here" > .env

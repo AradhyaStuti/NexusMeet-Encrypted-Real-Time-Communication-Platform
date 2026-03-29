@@ -25,7 +25,7 @@ describe("Logger", () => {
 
     it("should have correct default meta", () => {
         assert.ok(logger.defaultMeta, "Should have defaultMeta");
-        assert.equal(logger.defaultMeta.service, "ushameetx-api");
+        assert.equal(logger.defaultMeta.service, "meetsync-api");
     });
 
     it("should have multiple transports", () => {

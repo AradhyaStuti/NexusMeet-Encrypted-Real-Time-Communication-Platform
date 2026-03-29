@@ -8,7 +8,7 @@ import VideocamIcon from '@mui/icons-material/Videocam'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import "../App.css"
-import UshaMeetXLogo from '../components/UshaMeetXLogo'
+import MeetSyncLogo from '../components/MeetSyncLogo'
 import AvatarPicker from '../components/AvatarPicker'
 
 function History() {
@@ -59,8 +59,8 @@ function History() {
             {/* Navbar */}
             <div className="navBar">
                 <div className="navBarBrand">
-                    <UshaMeetXLogo size={36} />
-                    <h2>UshaMeetX</h2>
+                    <MeetSyncLogo size={36} />
+                    <h2>MeetSync</h2>
                 </div>
                 <div className="navBarActions">
                     <IconButton onClick={() => navigate('/home')} title="Back to Home"
