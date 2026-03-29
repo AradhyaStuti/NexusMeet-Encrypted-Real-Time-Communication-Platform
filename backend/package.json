@@ -12,10 +12,10 @@
   },
   "license": "ISC",
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
-    "crypto": "^1.0.1",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "express-rate-limit": "^8.3.1",
@@ -24,13 +24,13 @@
     "jsonwebtoken": "^9.0.3",
     "mediasoup": "^3.19.18",
     "mongoose": "^8.0.3",
-    "nodemon": "^3.0.2",
     "redis": "^4.7.1",
     "socket.io": "^4.7.3",
     "winston": "^3.19.0"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.0.1",
+    "nodemon": "^3.0.2",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2"
   }

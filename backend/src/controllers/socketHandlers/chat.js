@@ -28,8 +28,8 @@ export function registerChatHandlers(socket, io) {
         roomLastActivity.set(path, timestamp);
 
         // Sync to Redis
-        store.pushMessage(path, msg).catch(() => {});
-        store.setActivity(path).catch(() => {});
+        store.pushMessage(path, msg).catch(err => logger.warn("Redis pushMessage failed", { error: err.message }));
+        store.setActivity(path).catch(err => logger.warn("Redis setActivity failed", { error: err.message }));
 
         io.to(path).emit("chat-message", data, sender, socket.id, timestamp);
     });

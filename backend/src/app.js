@@ -1,6 +1,3 @@
-import dns from "node:dns";
-dns.setServers(["8.8.8.8", "8.8.4.4"]);
-
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -71,15 +68,13 @@ app.use((req, _res, next) => {
 });
 
 // ── Rate limiting on auth routes ──
-const authLimiter = process.env.NODE_ENV === "test"
-    ? (_req, _res, next) => next()  // no-op in test environment
-    : rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 30,
-        standardHeaders: true,
-        legacyHeaders: false,
-        message: { message: "Too many requests, please try again later." },
-    });
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === "test" ? 1000 : 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many requests, please try again later." },
+});
 
 // ── Routes ──
 app.use("/api/v1/users/login", authLimiter);

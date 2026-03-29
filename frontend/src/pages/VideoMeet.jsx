@@ -188,35 +188,42 @@ export default function VideoMeetComponent() {
         })
         socketRef.current.on('signal', gotMessageFromServer)
 
+        // Register event listeners once (outside 'connect') to avoid duplicates on reconnect
+        socketRef.current.on('chat-message', (data, sender, socketId, timestamp) => {
+            const name = participantNamesRef.current[socketId]?.username || sender || 'Participant'
+            chat.addMessage(data, name, socketId, timestamp)
+        })
+        socketRef.current.on('error-message', (msg) => {
+            chat.addMessage(msg, 'System', null, Date.now())
+        })
+
+        socketRef.current.on('user-left', (id) => {
+            if (connectionsRef.current[id]) {
+                connectionsRef.current[id].close()
+                delete connectionsRef.current[id]
+            }
+            room.removeParticipant(id)
+            setVideos(prev => prev.filter(v => v.socketId !== id))
+            room.setPinnedVideo(prev => prev === id ? null : prev)
+            videoRef.current = videoRef.current.filter(v => v.socketId !== id)
+        })
+
+        socketRef.current.on('hand-raise', (id, raised) => room.updateRemoteHandRaise(id, raised))
+        socketRef.current.on('reaction', (id, emoji) => room.addRemoteReaction(id, emoji))
+        socketRef.current.on('typing', (id, isTyping) => chat.updateTypingUser(id, isTyping))
+
+        lobby.registerListeners(socketRef.current)
+
         socketRef.current.on('connect', async () => {
+            // Clean up stale P2P connections from before the reconnect
+            for (const id in connectionsRef.current) {
+                try { connectionsRef.current[id].close() } catch { }
+            }
+            connectionsRef.current = {}
+
             socketRef.current.emit('join-call', window.location.pathname, username, getAvatar())
             socketIdRef.current = socketRef.current.id
             await chat.initE2E()
-
-            lobby.registerListeners(socketRef.current)
-
-            socketRef.current.on('chat-message', (data, sender, socketId, timestamp) => {
-                const name = participantNamesRef.current[socketId]?.username || sender || 'Participant'
-                chat.addMessage(data, name, socketId, timestamp)
-            })
-            socketRef.current.on('error-message', (msg) => {
-                chat.addMessage(msg, 'System', null, Date.now())
-            })
-
-            socketRef.current.on('user-left', (id) => {
-                if (connectionsRef.current[id]) {
-                    connectionsRef.current[id].close()
-                    delete connectionsRef.current[id]
-                }
-                room.removeParticipant(id)
-                setVideos(prev => prev.filter(v => v.socketId !== id))
-                room.setPinnedVideo(prev => prev === id ? null : prev)
-                videoRef.current = videoRef.current.filter(v => v.socketId !== id)
-            })
-
-            socketRef.current.on('hand-raise', (id, raised) => room.updateRemoteHandRaise(id, raised))
-            socketRef.current.on('reaction', (id, emoji) => room.addRemoteReaction(id, emoji))
-            socketRef.current.on('typing', (id, isTyping) => chat.updateTypingUser(id, isTyping))
 
             if (sfuModeRef.current) {
                 socketRef.current.on('new-producer', async ({ producerId, socketId: prodSocketId }) => {
