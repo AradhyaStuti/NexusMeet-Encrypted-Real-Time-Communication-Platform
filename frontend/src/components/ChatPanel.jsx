@@ -11,7 +11,7 @@ export default function ChatPanel({ chat, username, onClose }) {
     const chatEndRef = useRef(null)
 
     useEffect(() => {
-        if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        chatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })
     }, [chat.messages])
 
     const handleSendMessage = useCallback(() => {
