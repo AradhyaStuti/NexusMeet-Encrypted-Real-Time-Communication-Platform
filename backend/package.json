@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "test": "NODE_ENV=test node --test tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js"
+    "test": "NODE_ENV=test RATE_LIMIT_MAX=500 node --test --test-force-exit tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js"
   },
   "license": "ISC",
   "dependencies": {

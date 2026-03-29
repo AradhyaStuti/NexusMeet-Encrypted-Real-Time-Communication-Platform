@@ -24,31 +24,23 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install build tools for mediasoup
-        run: sudo apt-get update && sudo apt-get install -y python3 python3-pip build-essential
+      - name: Cache mongodb-memory-server binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-7.0
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Syntax check
-        run: |
-          node --check src/app.js
-          node --check src/controllers/socketManager.js
-          node --check src/controllers/socketHandlers/state.js
-          node --check src/controllers/socketHandlers/chat.js
-          node --check src/controllers/socketHandlers/sfu.js
-          node --check src/controllers/user.controller.js
-          node --check src/routes/users.routes.js
-          node --check src/utils/jwt.js
-          node --check src/utils/logger.js
-          node --check src/sfu/config.js
-          node --check src/sfu/worker.js
-          node --check src/sfu/room.js
+        run: find src -name '*.js' | xargs -P4 -I{} node --check {}
 
       - name: Run tests
-        run: node --test tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js
+        run: node --test --test-force-exit tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js
         env:
           NODE_ENV: test
+          RATE_LIMIT_MAX: 500
 
   frontend:
     name: Frontend

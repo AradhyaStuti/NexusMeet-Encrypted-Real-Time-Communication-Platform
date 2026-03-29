@@ -68,13 +68,14 @@ app.use((req, _res, next) => {
 });
 
 // ── Rate limiting on auth routes ──
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: process.env.NODE_ENV === "test" ? 1000 : 30,
+export const createAuthLimiter = ({ max = 30, windowMs = 15 * 60 * 1000 } = {}) => rateLimit({
+    windowMs,
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || max,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: "Too many requests, please try again later." },
 });
+const authLimiter = createAuthLimiter();
 
 // ── Routes ──
 app.use("/api/v1/users/login", authLimiter);
