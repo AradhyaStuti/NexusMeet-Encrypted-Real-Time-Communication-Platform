@@ -67,6 +67,8 @@ browser ──WebSocket──▶ Express + Socket.IO ──▶ MongoDB (users, h
 
 the server tries to spin up mediasoup workers on start (one per CPU core, max 4). if it works, each room gets its own Router — participants send one stream up, the server forwards it to everyone else.
 
+**simulcast:** video producers send 3 spatial layers (100kbps quarter-res, 300kbps half-res, 900kbps full-res). the SFU exposes a `set-consumer-layers` event so consumers can request a specific quality level. the plumbing is there — adaptive bandwidth-based switching (auto-downgrade for slow connections) is not yet implemented on the client side.
+
 if mediasoup fails (wrong platform, no UDP ports, whatever), it falls back to P2P. the frontend hits `/api/v1/sfu-status` before joining and picks the right mode. so it never breaks — worst case you get the old P2P behavior.
 
 if a worker dies at runtime, it's automatically replaced after 2 seconds. rooms that were on the dead worker are lost, but the system stays up.
@@ -154,7 +156,7 @@ npm install && npm start
 
 ## tests
 
-247 tests across backend + frontend.
+247 unit/integration tests + 6 Playwright E2E browser tests.
 
 ```bash
 cd backend && npm test
@@ -164,11 +166,13 @@ cd backend && npm test
 cd frontend && npm test
 # VideoMeet component, hooks (useRoomControls, useNetworkQuality,
 # useEncryptedChat), SfuClient, encryption utils, ErrorBoundary
+
+cd e2e && npx playwright test
+# landing page, lobby, host join, waiting room, keyboard shortcuts (mute toggle, chat open)
+# uses Chromium with fake media streams — no real camera needed
 ```
 
-GitHub Actions runs lint + tests + Docker build on every push. CI uses `cancel-in-progress` concurrency so stale runs don't pile up, and caches the mongodb-memory-server binary to avoid a ~100MB download on each run.
-
-**no E2E browser tests (Playwright/Cypress).** the test suite covers units, hooks, integration (real HTTP + real MongoDB), and socket events, but there's no automated test that proves a video call actually connects end-to-end in a real browser. that's the biggest testing gap.
+GitHub Actions runs lint + unit tests + Docker build + Playwright E2E on every push. CI uses `cancel-in-progress` concurrency so stale runs don't pile up, and caches the mongodb-memory-server binary to avoid a ~100MB download each run. The E2E job is `continue-on-error` because fake media in headless CI can be flaky.
 
 ## environment variables
 
@@ -218,7 +222,7 @@ backend/src/
     socketHandlers/
       state.js                      In-memory Maps (source of truth), rate limiter, room TTL
       chat.js                       chat-message, hand-raise, reaction, typing
-      sfu.js                        mediasoup signalling (8 events, guard wrapper)
+      sfu.js                        mediasoup signalling (9 events incl. simulcast layers)
   store/
     roomStore.js                    Redis-backed room state (write-through, logged failures)
   sfu/          config.js  worker.js (auto-restart)  room.js
@@ -235,8 +239,12 @@ frontend/src/
   components/   PreJoinLobby  WaitingScreen  RejectedScreen  VideoGrid  ChatPanel  MeetingControls
                 ErrorBoundary  AvatarPicker  Logo
   hooks/        useRoomControls  useNetworkQuality  useEncryptedChat  useMediaDevices  useWaitingRoom
-  utils/        sfuClient.js  encryption.js  withAuth.jsx
+  utils/        sfuClient.js (simulcast)  encryption.js  withAuth.jsx
   contexts/     AuthContext.jsx
+
+e2e/
+  tests/        video-call.spec.js (6 Playwright tests)
+  playwright.config.js
 ```
 
 ## known limitations
