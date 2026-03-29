@@ -15,6 +15,7 @@ import { connectToSocket } from "./controllers/socketManager.js";
 import userRoutes from "./routes/users.routes.js";
 import logger from "./utils/logger.js";
 import { initWorkers, isSfuAvailable } from "./sfu/worker.js";
+import { initRedis, shutdownRedis, isRedisConnected } from "./utils/redis.js";
 
 export const app = express();
 export const server = createServer(app);
@@ -96,14 +97,27 @@ app.get("/api/v1/ice-config", (_req, res) => {
         { urls: "stun:stun3.l.google.com:19302" },
     ];
 
-    // Add TURN server if configured via env
+    // Add TURN server(s) if configured via env
+    // Supports multiple URLs: TURN_URL="turn:relay1.example.com:3478,turns:relay1.example.com:5349"
     if (process.env.TURN_URL) {
+        const turnUrls = process.env.TURN_URL.split(",").map(u => u.trim()).filter(Boolean);
         iceServers.push({
-            urls: process.env.TURN_URL,
+            urls: turnUrls.length === 1 ? turnUrls[0] : turnUrls,
             username: process.env.TURN_USERNAME || "",
             credential: process.env.TURN_CREDENTIAL || "",
         });
-        logger.debug("TURN server included in ICE config");
+
+        // Optional second TURN server (e.g. a TCP-only fallback)
+        if (process.env.TURN_URL_2) {
+            const turnUrls2 = process.env.TURN_URL_2.split(",").map(u => u.trim()).filter(Boolean);
+            iceServers.push({
+                urls: turnUrls2.length === 1 ? turnUrls2[0] : turnUrls2,
+                username: process.env.TURN_USERNAME_2 || process.env.TURN_USERNAME || "",
+                credential: process.env.TURN_CREDENTIAL_2 || process.env.TURN_CREDENTIAL || "",
+            });
+        }
+
+        logger.debug("TURN server(s) included in ICE config", { count: iceServers.length - 4 });
     }
 
     res.json({ iceServers });
@@ -121,6 +135,7 @@ app.get("/health", (_req, res) => {
         status: "ok",
         uptime: Math.floor(process.uptime()),
         mongo: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+        redis: isRedisConnected() ? "connected" : "disconnected",
         sfu: isSfuAvailable(),
         version: "2.0.0",
     });
@@ -140,6 +155,7 @@ app.get("/api/v1/metrics", (_req, res) => {
         requests_total: requestCounts.total,
         requests_errors: requestCounts.errors,
         mongo_state: mongoose.connection.readyState,
+        redis_connected: isRedisConnected(),
         sfu_available: isSfuAvailable(),
     });
 });
@@ -204,22 +220,25 @@ const start = async () => {
         process.exit(1);
     }
 
+    // Initialize Redis (gracefully falls back to in-memory if unavailable)
+    await initRedis();
+
     // Initialize mediasoup SFU workers (gracefully falls back to P2P if unavailable)
     await initWorkers();
 
     server.listen(PORT, () => {
-        logger.info(`Server listening on port ${PORT}`, { sfu: isSfuAvailable() });
+        logger.info(`Server listening on port ${PORT}`, { sfu: isSfuAvailable(), redis: isRedisConnected() });
     });
 };
 
 // ── Graceful shutdown ──
 const shutdown = async (signal) => {
     logger.info(`${signal} received — shutting down gracefully`);
-    server.close(() => {
-        mongoose.connection.close(false).then(() => {
-            logger.info("MongoDB connection closed");
-            process.exit(0);
-        });
+    server.close(async () => {
+        await shutdownRedis();
+        await mongoose.connection.close(false);
+        logger.info("All connections closed");
+        process.exit(0);
     });
     setTimeout(() => process.exit(1), 10_000);
 };

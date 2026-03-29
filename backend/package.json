@@ -25,6 +25,7 @@
     "mediasoup": "^3.19.18",
     "mongoose": "^8.0.3",
     "nodemon": "^3.0.2",
+    "redis": "^4.7.1",
     "socket.io": "^4.7.3",
     "winston": "^3.19.0"
   },

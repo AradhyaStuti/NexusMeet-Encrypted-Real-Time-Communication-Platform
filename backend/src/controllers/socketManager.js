@@ -22,6 +22,7 @@ import {
 } from "./socketHandlers/state.js";
 import { registerChatHandlers } from "./socketHandlers/chat.js";
 import { registerSfuHandlers } from "./socketHandlers/sfu.js";
+import * as store from "../store/roomStore.js";
 
 // Re-export so existing tests keep working without path changes
 export { isRateLimited } from "./socketHandlers/state.js";
@@ -43,6 +44,11 @@ async function addUserToRoom(socket, io, path, username, avatar) {
     if (!rooms.has(path)) rooms.set(path, new Map());
     rooms.get(path).set(socket.id, { username, avatar });
     roomLastActivity.set(path, Date.now());
+
+    // Sync to Redis
+    store.setSocketRoom(socket.id, path).catch(() => {});
+    store.addParticipant(path, socket.id, { username, avatar }).catch(() => {});
+    store.setActivity(path).catch(() => {});
 
     const participants = [...rooms.get(path)].map(([sid, info]) => ({ socketId: sid, ...info }));
 
@@ -108,6 +114,7 @@ export const connectToSocket = (server) => {
             // First person becomes host — joins immediately
             if (!roomHosts.has(path) || !rooms.has(path) || rooms.get(path).size === 0) {
                 roomHosts.set(path, socket.id);
+                store.setHost(path, socket.id).catch(() => {});
                 await addUserToRoom(socket, io, path, username, avatar);
                 socket.emit("host-status", true);
                 logger.info("User is host", { socketId: socket.id, room: path.slice(-20) });
@@ -119,6 +126,8 @@ export const connectToSocket = (server) => {
             waitingRoom.get(path).set(socket.id, { username, avatar });
             // Track the path for this socket so we can clean up on disconnect
             socketRoom.set(socket.id, path);
+            store.addToWaitingRoom(path, socket.id, { username, avatar }).catch(() => {});
+            store.setSocketRoom(socket.id, path).catch(() => {});
 
             socket.emit("waiting-room-status", { status: "waiting" });
             sendWaitingListToHost(io, path);
@@ -139,6 +148,8 @@ export const connectToSocket = (server) => {
 
             // Remove the temporary socketRoom entry (addUserToRoom will re-set it)
             socketRoom.delete(targetSocketId);
+            store.removeFromWaitingRoom(path, targetSocketId).catch(() => {});
+            store.deleteSocketRoom(targetSocketId).catch(() => {});
 
             const targetSocket = io.sockets.sockets.get(targetSocketId);
             if (!targetSocket) return;
@@ -160,6 +171,8 @@ export const connectToSocket = (server) => {
             if (waiting.size === 0) waitingRoom.delete(path);
 
             socketRoom.delete(targetSocketId);
+            store.removeFromWaitingRoom(path, targetSocketId).catch(() => {});
+            store.deleteSocketRoom(targetSocketId).catch(() => {});
 
             const targetSocket = io.sockets.sockets.get(targetSocketId);
             if (targetSocket) {
@@ -179,6 +192,7 @@ export const connectToSocket = (server) => {
             for (const [sid, { username, avatar }] of [...waiting]) {
                 waiting.delete(sid);
                 socketRoom.delete(sid);
+                store.deleteSocketRoom(sid).catch(() => {});
                 const targetSocket = io.sockets.sockets.get(sid);
                 if (targetSocket) {
                     targetSocket.emit("waiting-room-status", { status: "admitted" });
@@ -186,6 +200,7 @@ export const connectToSocket = (server) => {
                 }
             }
             waitingRoom.delete(path);
+            store.clearWaitingRoom(path).catch(() => {});
             sendWaitingListToHost(io, path);
         });
 
@@ -216,12 +231,14 @@ function leaveCurrentRoom(socket, io) {
     if (!path) return;
 
     socketRoom.delete(socket.id);
+    store.deleteSocketRoom(socket.id).catch(() => {});
 
     // Remove from waiting room if they were waiting
     const waiting = waitingRoom.get(path);
     if (waiting && waiting.has(socket.id)) {
         waiting.delete(socket.id);
         if (waiting.size === 0) waitingRoom.delete(path);
+        store.removeFromWaitingRoom(path, socket.id).catch(() => {});
         sendWaitingListToHost(io, path);
         socket.leave(path);
         return; // wasn't in the actual room, just waiting
@@ -244,6 +261,7 @@ function leaveCurrentRoom(socket, io) {
     const room = rooms.get(path);
     if (room) {
         room.delete(socket.id);
+        store.removeParticipant(path, socket.id).catch(() => {});
         io.to(path).emit("user-left", socket.id);
 
         // Host left — promote next participant
@@ -251,11 +269,13 @@ function leaveCurrentRoom(socket, io) {
             if (room.size > 0) {
                 const newHostId = room.keys().next().value;
                 roomHosts.set(path, newHostId);
+                store.setHost(path, newHostId).catch(() => {});
                 io.to(newHostId).emit("host-status", true);
                 sendWaitingListToHost(io, path);
                 logger.info("Host promoted", { newHost: newHostId, room: path.slice(-20) });
             } else {
                 roomHosts.delete(path);
+                store.deleteHost(path).catch(() => {});
                 // Auto-admit any waiting users since room is empty
                 const pendingWaiting = waitingRoom.get(path);
                 if (pendingWaiting && pendingWaiting.size > 0) {
@@ -264,8 +284,10 @@ function leaveCurrentRoom(socket, io) {
                         const ws = io.sockets.sockets.get(sid);
                         if (ws) ws.emit("waiting-room-status", { status: "rejected" });
                         socketRoom.delete(sid);
+                        store.deleteSocketRoom(sid).catch(() => {});
                     }
                     waitingRoom.delete(path);
+                    store.clearWaitingRoom(path).catch(() => {});
                 }
             }
         }
@@ -276,6 +298,7 @@ function leaveCurrentRoom(socket, io) {
             roomLastActivity.delete(path);
             roomHosts.delete(path);
             waitingRoom.delete(path);
+            store.deleteRoom(path).catch(() => {});
         }
     }
 

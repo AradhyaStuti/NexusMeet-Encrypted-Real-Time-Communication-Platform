@@ -3,6 +3,7 @@
  */
 import logger from "../../utils/logger.js";
 import { socketRoom, messages, roomLastActivity, isRateLimited } from "./state.js";
+import * as store from "../../store/roomStore.js";
 
 export function registerChatHandlers(socket, io) {
 
@@ -22,8 +23,13 @@ export function registerChatHandlers(socket, io) {
         if (!messages.has(path)) messages.set(path, []);
         const roomMsgs = messages.get(path);
         if (roomMsgs.length >= 200) roomMsgs.shift();
-        roomMsgs.push({ sender, data, socketId: socket.id, timestamp });
+        const msg = { sender, data, socketId: socket.id, timestamp };
+        roomMsgs.push(msg);
         roomLastActivity.set(path, timestamp);
+
+        // Sync to Redis
+        store.pushMessage(path, msg).catch(() => {});
+        store.setActivity(path).catch(() => {});
 
         io.to(path).emit("chat-message", data, sender, socket.id, timestamp);
     });

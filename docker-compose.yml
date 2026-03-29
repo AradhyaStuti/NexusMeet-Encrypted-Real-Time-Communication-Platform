@@ -12,6 +12,17 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -19,6 +30,8 @@ services:
     restart: unless-stopped
     depends_on:
       mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -32,11 +45,17 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      # Optional TURN server
+      # Optional TURN server (comma-separated for multiple URLs)
+      # Example: turn:relay.example.com:3478,turns:relay.example.com:5349
       TURN_URL: ${TURN_URL:-}
       TURN_USERNAME: ${TURN_USERNAME:-}
       TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
+      # Optional second TURN server (e.g. TCP-only fallback)
+      TURN_URL_2: ${TURN_URL_2:-}
+      TURN_USERNAME_2: ${TURN_USERNAME_2:-}
+      TURN_CREDENTIAL_2: ${TURN_CREDENTIAL_2:-}
       # Tell mediasoup the public IP for ICE candidates
+      REDIS_URL: redis://redis:6379
       MEDIASOUP_ANNOUNCED_IP: ${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:8000/health').then(r=>r.ok||process.exit(1)).catch(()=>process.exit(1))"]
@@ -60,3 +79,4 @@ services:
 
 volumes:
   mongo_data:
+  redis_data:
