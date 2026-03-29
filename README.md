@@ -47,7 +47,7 @@ browser ──WebSocket──▶ Express + Socket.IO ──▶ MongoDB (users, h
 
 - **Dual-mode media (P2P + SFU):** P2P mesh is simpler but scales O(n^2) — every participant sends to every other. mediasoup SFU breaks that: one upload per person, server fans out. I implemented both because mediasoup requires a native C++ binary that doesn't run everywhere, so P2P is the universal fallback. The frontend checks `/api/v1/sfu-status` before joining and picks the right mode automatically.
 
-- **In-memory Maps as source of truth, Redis as write-through cache:** Socket.IO event handlers are synchronous — making every room lookup `await redis.hGet(...)` would add latency to every signaling message. So in-memory Maps handle the hot path, and Redis mirrors state via the `@socket.io/redis-adapter` for cross-instance event broadcasting. Redis write failures are logged (not silently swallowed), but the in-memory Maps remain the authority. For true horizontal scaling, this would need to be inverted — Redis as primary, in-memory as cache.
+- **In-memory Maps as source of truth, Redis as write-through cache:** Socket.IO event handlers are synchronous — making every room lookup `await redis.hGet(...)` would add latency to every signaling message. So in-memory Maps handle the hot path, and Redis mirrors state via the `@socket.io/redis-adapter` for cross-instance event broadcasting. The Redis adapter is `await`-ed before the server accepts any connections, so the first socket always gets cross-instance broadcasting. Redis write failures are logged (not silently swallowed), but the in-memory Maps remain the authority. For true horizontal scaling, this would need to be inverted — Redis as primary, in-memory as cache.
 
 - **SFU worker auto-restart:** If a mediasoup worker process dies, it's replaced after a 2-second delay. Existing rooms on that worker are lost, but new rooms get a healthy worker. No manual intervention needed.
 
@@ -67,7 +67,7 @@ browser ──WebSocket──▶ Express + Socket.IO ──▶ MongoDB (users, h
 
 the server tries to spin up mediasoup workers on start (one per CPU core, max 4). if it works, each room gets its own Router — participants send one stream up, the server forwards it to everyone else.
 
-**simulcast:** video producers send 3 spatial layers (100kbps quarter-res, 300kbps half-res, 900kbps full-res). the SFU exposes a `set-consumer-layers` event so consumers can request a specific quality level. the plumbing is there — adaptive bandwidth-based switching (auto-downgrade for slow connections) is not yet implemented on the client side.
+**simulcast:** video producers send 3 spatial layers (100kbps quarter-res, 300kbps half-res, 900kbps full-res). the SFU exposes a `set-consumer-layers` event and the frontend automatically switches layers based on `useNetworkQuality` — good network gets full-res (layer 2), fair gets half-res (layer 1), poor gets quarter-res (layer 0). Worker creation has a 10-second timeout so startup never hangs if mediasoup is unresponsive.
 
 if mediasoup fails (wrong platform, no UDP ports, whatever), it falls back to P2P. the frontend hits `/api/v1/sfu-status` before joining and picks the right mode. so it never breaks — worst case you get the old P2P behavior.
 
@@ -210,7 +210,7 @@ Full Socket.IO event reference at [`backend/docs/socket-events.md`](backend/docs
 | POST | `/api/v1/users/add_to_activity` | JWT | Save meeting to history |
 | DELETE | `/api/v1/users/delete_from_activity` | JWT | Remove from history |
 
-Every response includes an `x-request-id` header for tracing.
+Every HTTP response includes an `x-request-id` header for tracing. Socket.IO connections inherit `x-request-id` from the handshake or fall back to `socket.id`.
 
 ## project layout
 
@@ -255,7 +255,7 @@ e2e/
 - **SFU needs native dependencies.** mediasoup compiles C++ — doesn't work on all hosting platforms.
 - **Rooms are ephemeral.** No persistent room state beyond the Redis TTL (24h). Restart the server without Redis, rooms are gone.
 - **CORS allows all origins.** `origin: true` reflects any requesting origin. This is intentional — meeting links need to work from anywhere — but means any site can make credentialed requests to the API.
-- **Simulcast is server-ready, not adaptive on the consumer side.** The producer sends 3 spatial layers (low/med/high), but consumers always get the highest available layer. Bandwidth-adaptive layer switching (downgrading for slow connections) is not implemented.
+- **No chaos tests.** No automated tests for worker crash recovery, Redis failover, or network partition. The code handles these cases, but they're not verified in CI.
 
 ---
 
