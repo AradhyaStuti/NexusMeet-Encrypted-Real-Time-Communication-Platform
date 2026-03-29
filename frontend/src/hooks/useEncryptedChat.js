@@ -35,7 +35,9 @@ export function useEncryptedChat({ socketRef, socketIdRef }) {
                 e2eKeyRef.current = key
                 setE2eEnabled(true)
             }
-        } catch { }
+        } catch (e) {
+            console.warn('E2E key init failed:', e.message)
+        }
     }, [])
 
     const addMessage = useCallback(async (data, sender, socketIdSender, timestamp) => {

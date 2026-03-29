@@ -1,10 +1,45 @@
+# Render Blueprint — deploy with one click
+# https://render.com/docs/blueprint-spec
+#
+# Click "New > Blueprint" on Render dashboard and point at this repo.
+
 services:
+  - type: web
+    name: meetsync-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        fromDatabase:
+          name: meetsync-db
+          property: connectionString
+    healthCheckPath: /health
+
   - type: web
     name: meetsync-frontend
     env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        fromService:
+          type: web
+          name: meetsync-backend
+          property: hostport
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
+
+databases:
+  - name: meetsync-db
+    plan: free
+    databaseName: meetsync

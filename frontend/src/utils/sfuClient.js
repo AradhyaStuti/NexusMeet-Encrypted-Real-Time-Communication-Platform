@@ -68,11 +68,24 @@ export class SfuClient {
         return this.recvTransport;
     }
 
-    /** Produce a media track (audio or video) */
+    /** Produce a media track (audio or video). Enables simulcast for video. */
     async produce(track) {
         if (!this.sendTransport) await this.createSendTransport();
 
-        const producer = await this.sendTransport.produce({ track });
+        const options = { track };
+
+        // Simulcast: send 3 spatial layers so the SFU can forward the
+        // appropriate quality to each consumer based on bandwidth.
+        if (track.kind === 'video') {
+            options.encodings = [
+                { maxBitrate: 100000, scaleResolutionDownBy: 4 },   // low  (quarter res)
+                { maxBitrate: 300000, scaleResolutionDownBy: 2 },   // mid  (half res)
+                { maxBitrate: 900000 },                              // high (full res)
+            ];
+            options.codecOptions = { videoGoogleStartBitrate: 1000 };
+        }
+
+        const producer = await this.sendTransport.produce(options);
         this.producers.set(producer.kind, producer);
         return producer;
     }

@@ -168,6 +168,14 @@ export class SfuRoom {
         return ids;
     }
 
+    async setConsumerLayers(socketId, consumerId, spatialLayer, temporalLayer) {
+        const peer = this.peers.get(socketId);
+        const consumer = peer?.consumers?.get(consumerId);
+        if (consumer && consumer.type === 'simulcast') {
+            await consumer.setPreferredLayers({ spatialLayer, temporalLayer });
+        }
+    }
+
     isEmpty() {
         return this.peers.size === 0;
     }

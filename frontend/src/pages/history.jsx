@@ -22,7 +22,9 @@ function History() {
             try {
                 const history = await getHistoryOfUser()
                 setMeetings(history)
-            } catch { }
+            } catch (e) {
+                console.warn('Failed to load meeting history:', e.message)
+            }
         }
         fetchHistory()
     }, [getHistoryOfUser])
@@ -42,13 +44,16 @@ function History() {
         try {
             await deleteFromUserHistory(meetingId)
             setMeetings(prev => prev.filter(m => m._id !== meetingId))
-        } catch { }
+        } catch (e) {
+            console.warn('Failed to delete meeting:', e.message)
+        }
         setDeletingId(null)
     }
 
     const handleClearAll = async () => {
         for (const meeting of meetings) {
-            try { await deleteFromUserHistory(meeting._id) } catch { }
+            try { await deleteFromUserHistory(meeting._id) }
+            catch (e) { console.warn('Failed to delete meeting:', e.message) }
         }
         setMeetings([])
     }

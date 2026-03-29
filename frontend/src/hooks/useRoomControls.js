@@ -72,7 +72,8 @@ export function useRoomControls({ socketRef, socketIdRef, remoteVideoElems }) {
     }, [remoteVideoElems])
 
     const copyMeetingLink = useCallback(() => {
-        navigator.clipboard.writeText(window.location.href).catch(() => { })
+        navigator.clipboard.writeText(window.location.href)
+            .catch(e => console.warn('Clipboard write failed:', e.message))
         setCopyToast(true)
         setTimeout(() => setCopyToast(false), 2000)
     }, [])

@@ -98,3 +98,62 @@ jobs:
 
       - name: Build frontend image
         run: docker build ./frontend
+
+  # E2E tests require both frontend and backend running.
+  # Marked continue-on-error because fake media streams in CI are flaky.
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: [frontend]
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+        env:
+          CI: false
+
+      - name: Start backend
+        working-directory: backend
+        run: |
+          npm ci --ignore-scripts
+          node src/app.js &
+        env:
+          NODE_ENV: test
+          PORT: 8000
+          MONGO_URI: mongodb://localhost:27017/meetsync-e2e
+          JWT_SECRET: e2e-test-secret
+          RATE_LIMIT_MAX: 500
+
+      - name: Serve frontend
+        run: npx serve -s ../frontend/build -l 3000 &
+
+      - name: Wait for servers
+        run: |
+          npx wait-on http://localhost:3000 http://localhost:8000/health --timeout 30000
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: e2e/test-results/

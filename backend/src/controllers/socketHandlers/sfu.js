@@ -116,4 +116,12 @@ export function registerSfuHandlers(socket, io) {
         if (!sfuRoom) return callback?.([]);
         callback?.(sfuRoom.getProducerIds(socket.id));
     });
+
+    socket.on("set-consumer-layers", guard("set-consumer-layers", async ({ consumerId, spatialLayer, temporalLayer } = {}, callback) => {
+        const path = socketRoom.get(socket.id);
+        const sfuRoom = path && sfuRooms.get(path);
+        if (!sfuRoom) return callback?.({ error: "No SFU room" });
+        await sfuRoom.setConsumerLayers(socket.id, consumerId, spatialLayer ?? 2, temporalLayer ?? 2);
+        callback?.({});
+    }));
 }

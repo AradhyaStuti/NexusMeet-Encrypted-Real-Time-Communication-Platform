@@ -25,7 +25,7 @@ export function useNetworkQuality({ connectionsRef, active }) {
                             }
                         }
                     })
-                } catch { }
+                } catch (e) { /* peer disconnected before stats returned */ }
             }
         }, 5000)
 

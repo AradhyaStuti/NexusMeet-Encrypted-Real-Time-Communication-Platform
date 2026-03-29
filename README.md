@@ -17,18 +17,19 @@ WebRTC video conferencing with mediasoup SFU, waiting room, and E2E encrypted ch
 
 ## what this is
 
-a video calling app. you create a meeting, get a link, share it — anyone can join from their browser. no installs.
+not another "video chat tutorial." this started as a basic P2P WebRTC app and evolved into an exploration of the real engineering problems behind video conferencing: **how SFUs scale media**, **how E2E encryption works (and where it breaks)**, **how to handle graceful degradation** when infrastructure isn't available, and **how room state management actually works** at the socket layer.
 
-started as a basic P2P thing but I ended up adding an SFU layer with mediasoup so it actually works with more than 3 people in a call. also added E2E encryption on the chat because the server shouldn't be reading messages.
+the interesting parts aren't the UI — it's the dual P2P/SFU architecture with automatic fallback, the mediasoup worker pool with auto-restart on crash, the waiting room with host promotion, and the Redis write-through layer with Socket.IO adapter for horizontal scaling.
 
-**the main stuff:**
-- video calls (P2P for small rooms, SFU when mediasoup is running)
+**features:**
+- video calls with simulcast (P2P mesh for small rooms, SFU with adaptive bitrate when mediasoup is running)
 - waiting room — host admits/rejects joiners, auto-promotes next participant if host leaves
 - screen sharing
-- chat with E2E encryption (AES-256-GCM, key stays in the URL hash — server never sees it)
+- chat with E2E encryption (AES-256-GCM via Web Crypto API, key in URL hash — server never sees it)
 - reactions, hand raise, typing indicators
 - spotlight mode — pin someone full screen
 - per-person volume control
+- reconnection recovery (cleans stale P2P, re-joins room automatically)
 - keyboard shortcuts (M V C H E)
 - works on mobile
 
@@ -117,6 +118,8 @@ REDIS_URL=redis://localhost:6379
 Docker Compose includes a Redis container automatically.
 
 ## running it
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
 ### with Docker (recommended)
 
@@ -243,8 +246,8 @@ frontend/src/
 - **No TURN server included.** STUN only gets you through simple NATs. Corporate firewalls need TURN, which costs bandwidth and money.
 - **SFU needs native dependencies.** mediasoup compiles C++ — doesn't work on all hosting platforms.
 - **Rooms are ephemeral.** No persistent room state beyond the Redis TTL (24h). Restart the server without Redis, rooms are gone.
-- **No E2E browser tests.** No Playwright/Cypress tests to verify an actual video call connects. Unit + integration coverage is solid, but the browser-level gap is real.
 - **CORS allows all origins.** `origin: true` reflects any requesting origin. This is intentional — meeting links need to work from anywhere — but means any site can make credentialed requests to the API.
+- **Simulcast is server-ready, not adaptive on the consumer side.** The producer sends 3 spatial layers (low/med/high), but consumers always get the highest available layer. Bandwidth-adaptive layer switching (downgrading for slow connections) is not implemented.
 
 ---
 

@@ -57,13 +57,15 @@ export default function VideoMeetComponent() {
     const room = useRoomControls({ socketRef, socketIdRef, remoteVideoElems })
     const lobby = useWaitingRoom({ socketRef })
 
-    // ── Init ──
+    // ── Init: run once on mount, clean up on unmount ──
+    // Intentionally empty deps — getPermissions and cleanupCall are stable refs
     useEffect(() => {
         media.getPermissions()
         return () => cleanupCall()
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Re-get media when video/audio toggles ──
+    // Only re-run when video/audio booleans change, not when getUserMedia ref changes
     useEffect(() => {
         if (media.video !== undefined && media.audio !== undefined) {
             media.getUserMedia(media.video, media.audio, media.videoAvailable, media.audioAvailable)
@@ -76,6 +78,7 @@ export default function VideoMeetComponent() {
     }, [media.screen]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Keyboard shortcuts ──
+    // Handlers are stable callbacks — only rebind when meeting state changes
     useEffect(() => {
         if (askForUsername) return
         const handleKeyDown = (e) => {
@@ -95,16 +98,17 @@ export default function VideoMeetComponent() {
 
     // ── Cleanup ──
     const cleanupCall = useCallback(() => {
-        try {
-            window.localStream?.getTracks().forEach(t => t.stop())
-            window.localStream = null
-        } catch { }
+        try { window.localStream?.getTracks().forEach(t => t.stop()) }
+        catch (e) { /* track already stopped */ }
+        window.localStream = null
         if (sfuClientRef.current) {
-            try { sfuClientRef.current.close() } catch { }
+            try { sfuClientRef.current.close() }
+            catch (e) { /* already closed */ }
             sfuClientRef.current = null
         }
         for (const id in connectionsRef.current) {
-            try { connectionsRef.current[id].close() } catch { }
+            try { connectionsRef.current[id].close() }
+            catch (e) { /* peer already gone */ }
         }
         connectionsRef.current = {}
         if (socketRef.current) {
@@ -156,7 +160,8 @@ export default function VideoMeetComponent() {
     // ── P2P signaling ──
     const gotMessageFromServer = useCallback((fromId, message) => {
         let signal
-        try { signal = JSON.parse(message) } catch { return }
+        try { signal = JSON.parse(message) }
+        catch { return } // malformed JSON from peer — discard
         const connections = connectionsRef.current
         if (fromId === socketIdRef.current || !connections[fromId]) return
         if (signal.sdp) {
@@ -165,13 +170,14 @@ export default function VideoMeetComponent() {
                     connections[fromId].createAnswer().then(desc => {
                         connections[fromId].setLocalDescription(desc).then(() => {
                             socketRef.current?.emit('signal', fromId, JSON.stringify({ sdp: connections[fromId].localDescription }))
-                        }).catch(() => { })
-                    }).catch(() => { })
+                        }).catch(e => console.warn('WebRTC setLocalDescription failed:', e.message))
+                    }).catch(e => console.warn('WebRTC createAnswer failed:', e.message))
                 }
-            }).catch(() => { })
+            }).catch(e => console.warn('WebRTC setRemoteDescription failed:', e.message))
         }
         if (signal.ice) {
-            connections[fromId].addIceCandidate(new RTCIceCandidate(signal.ice)).catch(() => { })
+            connections[fromId].addIceCandidate(new RTCIceCandidate(signal.ice))
+                .catch(e => console.warn('ICE candidate failed:', e.message))
         }
     }, [])
 
@@ -217,7 +223,8 @@ export default function VideoMeetComponent() {
         socketRef.current.on('connect', async () => {
             // Clean up stale P2P connections from before the reconnect
             for (const id in connectionsRef.current) {
-                try { connectionsRef.current[id].close() } catch { }
+                try { connectionsRef.current[id].close() }
+                catch (e) { /* peer already gone */ }
             }
             connectionsRef.current = {}
 
@@ -232,7 +239,9 @@ export default function VideoMeetComponent() {
                         const consumer = await sfuClientRef.current.consume(producerId)
                         if (!consumer) return
                         addRemoteTrack(prodSocketId, consumer.track)
-                    } catch { }
+                    } catch (e) {
+                        console.warn('SFU consume failed:', e.message)
+                    }
                 })
                 socketRef.current.on('producer-closed', () => { })
             }
@@ -259,6 +268,7 @@ export default function VideoMeetComponent() {
                             if (consumer) addRemoteTrack(prodSocketId, consumer.track)
                         }
                     } catch (err) {
+                        console.warn('SFU init failed, falling back to P2P:', err.message)
                         sfuModeRef.current = false
                         setSfuActive(false)
                     }
@@ -280,7 +290,7 @@ export default function VideoMeetComponent() {
                                     .then(desc => {
                                         connectionsRef.current[pid]?.setLocalDescription(desc)
                                             .then(() => socketRef.current?.emit('signal', pid, JSON.stringify({ sdp: connectionsRef.current[pid].localDescription })))
-                                    }).catch(() => { })
+                                    }).catch(e => console.warn('ICE restart failed:', e.message))
                             }
                         }
                         connectionsRef.current[pid].ontrack = (event) => {
@@ -300,28 +310,37 @@ export default function VideoMeetComponent() {
                             connectionsRef.current[id2].createOffer().then(desc => {
                                 connectionsRef.current[id2].setLocalDescription(desc)
                                     .then(() => socketRef.current?.emit('signal', id2, JSON.stringify({ sdp: connectionsRef.current[id2].localDescription })))
-                                    .catch(() => { })
+                                    .catch(e => console.warn('WebRTC offer setLocal failed:', e.message))
                             })
                         }
                     }
                 }
             })
         })
-    }, [username, gotMessageFromServer, chat, room, addRemoteStream, addRemoteTrack]) // eslint-disable-line react-hooks/exhaustive-deps
+        // Deps: username changes require a fresh socket; other deps are stable refs.
+        // Hook objects (chat, room, lobby) are excluded because they change identity every
+        // render but their inner functions close over the same refs. Including them would
+        // cause infinite reconnect loops.
+    }, [username, gotMessageFromServer, addRemoteStream, addRemoteTrack]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Get media + connect ──
+    // connectToSocketServer is the only real dep; media.startMedia is a stable ref
     const getMedia = useCallback(async () => {
         try {
             const res = await fetch(`${server_url}/api/v1/ice-config`)
             const data = await res.json()
             if (data.iceServers) iceConfigRef.current = { iceServers: data.iceServers }
-        } catch { }
+        } catch (e) {
+            console.warn('Failed to fetch ICE config, using defaults:', e.message)
+        }
         try {
             const res = await fetch(`${server_url}/api/v1/sfu-status`)
             const data = await res.json()
             sfuModeRef.current = data.enabled === true
             setSfuActive(data.enabled === true)
-        } catch { }
+        } catch (e) {
+            console.warn('Failed to fetch SFU status, defaulting to P2P:', e.message)
+        }
         media.startMedia()
         connectToSocketServer()
     }, [connectToSocketServer]) // eslint-disable-line react-hooks/exhaustive-deps
