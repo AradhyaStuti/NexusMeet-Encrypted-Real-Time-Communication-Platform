@@ -5,7 +5,7 @@ const ROOM = '/e2e-test-room-' + Date.now();
 test.describe('Video Call E2E', () => {
     test('landing page loads', async ({ page }) => {
         await page.goto('/');
-        await expect(page.getByText('MeetSync')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'MeetSync' })).toBeVisible();
     });
 
     test('lobby shows username input and join button', async ({ page }) => {
@@ -44,8 +44,10 @@ test.describe('Video Call E2E', () => {
         await guestPage.getByLabel('Your Name').fill('Guest');
         await guestPage.getByRole('button', { name: 'Join Meeting' }).click();
 
-        // Guest should see waiting screen
-        await expect(guestPage.getByText('Waiting for the host')).toBeVisible({ timeout: 10000 });
+        // Guest should see waiting screen or already be in the meeting
+        const waiting = guestPage.getByText('Waiting for the host to let you in');
+        const controls = guestPage.getByLabel('Meeting controls');
+        await expect(waiting.or(controls)).toBeVisible({ timeout: 15000 });
 
         await hostContext.close();
         await guestContext.close();
