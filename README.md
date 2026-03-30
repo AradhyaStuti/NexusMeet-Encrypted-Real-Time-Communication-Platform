@@ -9,7 +9,7 @@ WebRTC video conferencing with mediasoup SFU, waiting room, and E2E encrypted ch
 ![WebRTC](https://img.shields.io/badge/WebRTC-333?style=flat-square&logo=webrtc&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-247_passing-brightgreen?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-40_passing-brightgreen?style=flat-square)
 
 </div>
 
@@ -156,7 +156,7 @@ npm install && npm start
 
 ## tests
 
-247 unit/integration tests + 6 Playwright E2E browser tests.
+40 unit/integration tests + 3 Playwright E2E browser tests.
 
 ```bash
 cd backend && npm test
@@ -164,11 +164,11 @@ cd backend && npm test
 # HTTP integration (real MongoDB via mongodb-memory-server)
 
 cd frontend && npm test
-# VideoMeet component, hooks (useRoomControls, useNetworkQuality,
-# useEncryptedChat), SfuClient, encryption utils, ErrorBoundary
+# VideoMeet component, hooks (useRoomControls, useEncryptedChat),
+# SfuClient, encryption utils
 
 cd e2e && npx playwright test
-# landing page, lobby, host join, waiting room, keyboard shortcuts (mute toggle, chat open)
+# landing page, host join, waiting room
 # uses Chromium with fake media streams — no real camera needed
 ```
 
@@ -243,7 +243,7 @@ frontend/src/
   contexts/     AuthContext.jsx
 
 e2e/
-  tests/        video-call.spec.js (6 Playwright tests)
+  tests/        video-call.spec.js (3 Playwright tests)
   playwright.config.js
 ```
 

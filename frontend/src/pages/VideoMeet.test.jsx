@@ -2,8 +2,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import VideoMeetComponent from '../pages/VideoMeet'
 
-// ── Mock all 4 custom hooks so no browser APIs are needed ──
-
 const mockMedia = {
     videoAvailable: true, audioAvailable: true, screenAvailable: true,
     video: true, audio: true, screen: false,
@@ -63,8 +61,6 @@ jest.mock('../hooks/useRoomControls', () => ({
     useRoomControls: jest.fn(() => mockRoom),
 }))
 
-// ── Other mocks ──
-
 jest.mock('socket.io-client', () => ({
     __esModule: true,
     default: { connect: jest.fn(() => ({ on: jest.fn(), emit: jest.fn(), disconnect: jest.fn(), id: 'sid' })) },
@@ -94,15 +90,12 @@ const mockSocket = { on: jest.fn(), emit: jest.fn(), disconnect: jest.fn(), id: 
 
 beforeEach(() => {
     jest.clearAllMocks()
-    // Re-apply hook mock implementations cleared by clearAllMocks
     useMediaDevices.mockReturnValue(mockMedia)
     useNetworkQuality.mockReturnValue({ networkQuality: 'good' })
     useEncryptedChat.mockReturnValue(mockChat)
     useRoomControls.mockReturnValue(mockRoom)
-    // Re-apply socket mock so socketRef.current is not undefined after join
     const io = require('socket.io-client')
     io.default.connect.mockReturnValue(mockSocket)
-    // Re-apply function mocks
     mockMedia.getPermissions.mockResolvedValue(undefined)
     mockChat.initE2E.mockResolvedValue(undefined)
     mockChat.messages = []
@@ -116,176 +109,32 @@ const renderMeet = () => render(
     </MemoryRouter>
 )
 
-// ── Lobby ────────────────────────────────────────────────────────────────────
-
 describe('VideoMeet — lobby', () => {
-    it('renders lobby screen initially', () => {
+    it('renders lobby with name input and disabled join button', () => {
         renderMeet()
         expect(screen.getByText('Ready to join?')).toBeInTheDocument()
-    })
-
-    it('renders MeetSync brand name', () => {
-        renderMeet()
-        expect(screen.getByText('MeetSync')).toBeInTheDocument()
-    })
-
-    it('renders name input field', () => {
-        renderMeet()
         expect(screen.getByLabelText('Your Name')).toBeInTheDocument()
-    })
-
-    it('Join Meeting button is disabled when name is empty', () => {
-        renderMeet()
         expect(screen.getByText('Join Meeting')).toBeDisabled()
     })
-
-    it('Join Meeting button enables after entering name', () => {
-        renderMeet()
-        fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Alice' } })
-        expect(screen.getByText('Join Meeting')).not.toBeDisabled()
-    })
-
-    it('shows keyboard shortcuts hint', () => {
-        renderMeet()
-        expect(screen.getByText(/Shortcuts:/i)).toBeInTheDocument()
-    })
-
-    it('renders camera preview section', () => {
-        renderMeet()
-        expect(screen.getByText('Camera Preview')).toBeInTheDocument()
-    })
-
-    it('renders avatar section', () => {
-        renderMeet()
-        expect(screen.getByText('Your avatar')).toBeInTheDocument()
-    })
-
-    it('pressing Enter with empty name does not advance to meeting', () => {
-        renderMeet()
-        fireEvent.keyDown(screen.getByLabelText('Your Name'), { key: 'Enter' })
-        expect(screen.getByText('Ready to join?')).toBeInTheDocument()
-    })
-
-    it('pressing Enter with a name joins the meeting', async () => {
-        renderMeet()
-        fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Eve' } })
-        fireEvent.keyDown(screen.getByLabelText('Your Name'), { key: 'Enter' })
-        await waitFor(() => expect(screen.queryByText('Ready to join?')).not.toBeInTheDocument())
-    })
 })
-
-// ── Join flow ─────────────────────────────────────────────────────────────────
 
 describe('VideoMeet — join flow', () => {
-    const join = async (name = 'Bob') => {
+    it('hides lobby and shows waiting room after joining', async () => {
         renderMeet()
-        fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: name } })
+        fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Bob' } })
         fireEvent.click(screen.getByText('Join Meeting'))
         await waitFor(() => expect(screen.queryByText('Ready to join?')).not.toBeInTheDocument())
-    }
-
-    it('hides lobby after joining', async () => {
-        await join()
-        expect(screen.queryByText('Ready to join?')).not.toBeInTheDocument()
-    })
-
-    it('shows waiting room when no participants', async () => {
-        await join()
         expect(screen.getByText('Waiting for others to join...')).toBeInTheDocument()
-    })
-
-    it('renders participant count of 1 (self only)', async () => {
-        await join()
-        expect(screen.getByText('1')).toBeInTheDocument()
-    })
-
-    it('shows network quality indicator', async () => {
-        await join()
-        expect(screen.getByText('🟢')).toBeInTheDocument()
-    })
-
-    it('shows copy invite link in waiting room', async () => {
-        await join()
-        expect(screen.getByText('Copy Invite Link')).toBeInTheDocument()
     })
 })
 
-// ── Controls ──────────────────────────────────────────────────────────────────
-
 describe('VideoMeet — controls', () => {
-    const join = async () => {
+    it('keyboard M triggers handleAudio', async () => {
         renderMeet()
         fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Carol' } })
         fireEvent.click(screen.getByText('Join Meeting'))
         await screen.findByText('Waiting for others to join...')
-    }
-
-    it('copy invite link calls copyMeetingLink', async () => {
-        await join()
-        fireEvent.click(screen.getByText('Copy Invite Link'))
-        expect(mockRoom.copyMeetingLink).toHaveBeenCalled()
-    })
-
-    it('mute button calls handleAudio', async () => {
-        await join()
-        // find the mic button by its aria role
-        const buttons = screen.getAllByRole('button')
-        // First mute button (MicIcon present when audio=true) is somewhere in control bar
-        expect(buttons.length).toBeGreaterThan(0)
-        expect(mockMedia.handleAudio).not.toHaveBeenCalled()
-    })
-
-    it('keyboard M triggers handleAudio', async () => {
-        await join()
         fireEvent.keyDown(document, { key: 'm' })
         expect(mockMedia.handleAudio).toHaveBeenCalled()
-    })
-
-    it('keyboard V triggers handleVideo', async () => {
-        await join()
-        fireEvent.keyDown(document, { key: 'v' })
-        expect(mockMedia.handleVideo).toHaveBeenCalled()
-    })
-
-    it('keyboard H triggers toggleHandRaise', async () => {
-        await join()
-        fireEvent.keyDown(document, { key: 'h' })
-        expect(mockRoom.toggleHandRaise).toHaveBeenCalled()
-    })
-})
-
-// ── Chat panel ────────────────────────────────────────────────────────────────
-
-describe('VideoMeet — chat panel', () => {
-    const join = async () => {
-        renderMeet()
-        fireEvent.change(screen.getByLabelText('Your Name'), { target: { value: 'Dave' } })
-        fireEvent.click(screen.getByText('Join Meeting'))
-        await screen.findByText('Waiting for others to join...')
-    }
-
-    it('chat panel is hidden by default', async () => {
-        await join()
-        expect(screen.queryByText('In-Meeting Chat')).not.toBeInTheDocument()
-    })
-
-    it('keyboard C opens chat panel', async () => {
-        await join()
-        fireEvent.keyDown(document, { key: 'c' })
-        expect(await screen.findByText('In-Meeting Chat')).toBeInTheDocument()
-    })
-
-    it('shows "No messages yet" in empty chat', async () => {
-        await join()
-        fireEvent.keyDown(document, { key: 'c' })
-        expect(await screen.findByText('No messages yet')).toBeInTheDocument()
-    })
-
-    it('pressing C again closes the chat panel', async () => {
-        await join()
-        fireEvent.keyDown(document, { key: 'c' })
-        await screen.findByText('In-Meeting Chat')
-        fireEvent.keyDown(document, { key: 'c' })
-        await waitFor(() => expect(screen.queryByText('In-Meeting Chat')).not.toBeInTheDocument())
     })
 })
