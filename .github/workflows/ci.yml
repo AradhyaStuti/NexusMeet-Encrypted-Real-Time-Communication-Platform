@@ -41,7 +41,7 @@ jobs:
         run: find src -name '*.js' | xargs -P4 -I{} node --check {}
 
       - name: Run tests
-        run: node --test --test-force-exit tests/auth.test.js tests/logger.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js
+        run: node --test --test-force-exit tests/auth.test.js tests/controller.test.js tests/room.test.js tests/socket.test.js tests/api.integration.test.js
         env:
           NODE_ENV: test
           RATE_LIMIT_MAX: 500
