@@ -110,6 +110,3 @@ MongoDB (users & history)
 ## Summary
 
 NexusMeet demonstrates how modern real-time communication systems work under the hood, combining WebRTC, SFU architecture, and secure messaging into a scalable full-stack system.
-```
-
----
