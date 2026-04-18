@@ -41,7 +41,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8000
-      MONGO_URI: mongodb://mongo:27017/meetsync
+      MONGO_URI: mongodb://mongo:27017/nexusmeet
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}

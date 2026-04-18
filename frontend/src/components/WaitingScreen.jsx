@@ -1,6 +1,6 @@
 import { Button } from '@mui/material'
 import styles from '../styles/videoComponent.module.css'
-import MeetSyncLogo from './MeetSyncLogo'
+import NexusMeetLogo from './NexusMeetLogo'
 import { getAvatar } from './AvatarPicker'
 
 export default function WaitingScreen({ localVideoRef, username, onLeave }) {
@@ -8,8 +8,8 @@ export default function WaitingScreen({ localVideoRef, username, onLeave }) {
         <div className={styles.lobbyContainer}>
             <div className={styles.waitingAdmissionCard}>
                 <div className={styles.lobbyBrand}>
-                    <MeetSyncLogo size={34} />
-                    <span className={styles.lobbyBrandName}>MeetSync</span>
+                    <NexusMeetLogo size={34} />
+                    <span className={styles.lobbyBrandName}>NexusMeet</span>
                 </div>
                 <div className={styles.waitingPulseRing}>
                     <div className={styles.waitingPulseInner} />

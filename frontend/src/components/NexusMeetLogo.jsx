@@ -1,8 +1,8 @@
-// MeetSync brand mark — SVG logo component
+// NexusMeet brand mark — SVG logo component
 // Camera + video-wing + lens design
 
-export default function MeetSyncLogo({ size = 38 }) {
-    const id = `ms_${size}`
+export default function NexusMeetLogo({ size = 38 }) {
+    const id = `nm_${size}`
     return (
         <svg
             width={size}

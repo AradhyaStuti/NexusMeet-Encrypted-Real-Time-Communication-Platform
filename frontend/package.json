@@ -1,7 +1,7 @@
 {
-  "name": "meetsync-frontend",
+  "name": "nexusmeet-frontend",
   "version": "1.0.0",
-  "description": "MeetSync video conferencing frontend — React, WebRTC, Socket.io",
+  "description": "NexusMeet frontend — React, WebRTC, Socket.io",
   "author": "Aradhya Stuti",
   "license": "ISC",
   "private": true,

@@ -1,14 +1,14 @@
 import { Button } from '@mui/material'
 import styles from '../styles/videoComponent.module.css'
-import MeetSyncLogo from './MeetSyncLogo'
+import NexusMeetLogo from './NexusMeetLogo'
 
 export default function RejectedScreen() {
     return (
         <div className={styles.lobbyContainer}>
             <div className={styles.waitingAdmissionCard}>
                 <div className={styles.lobbyBrand}>
-                    <MeetSyncLogo size={34} />
-                    <span className={styles.lobbyBrandName}>MeetSync</span>
+                    <NexusMeetLogo size={34} />
+                    <span className={styles.lobbyBrandName}>NexusMeet</span>
                 </div>
                 <div style={{ fontSize: '3rem', margin: '1.5rem 0 0.5rem', textAlign: 'center' }}>🚫</div>
                 <h2 className={styles.waitingTitle}>You were not admitted</h2>

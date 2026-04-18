@@ -1,7 +1,7 @@
 {
-  "name": "meetsync",
+  "name": "nexusmeet",
   "version": "1.0.0",
-  "description": "MeetSync — Full Stack WebRTC Video Conferencing Platform",
+  "description": "NexusMeet — Encrypted Real-Time Communication Platform",
   "author": "Aradhya Stuti",
   "private": true,
   "scripts": {

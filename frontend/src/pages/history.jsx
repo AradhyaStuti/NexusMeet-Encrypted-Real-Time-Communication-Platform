@@ -8,7 +8,7 @@ import VideocamIcon from '@mui/icons-material/Videocam'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import "../App.css"
-import MeetSyncLogo from '../components/MeetSyncLogo'
+import NexusMeetLogo from '../components/NexusMeetLogo'
 import AvatarPicker from '../components/AvatarPicker'
 
 function History() {
@@ -64,8 +64,8 @@ function History() {
             {/* Navbar */}
             <div className="navBar">
                 <div className="navBarBrand">
-                    <MeetSyncLogo size={36} />
-                    <h2>MeetSync</h2>
+                    <NexusMeetLogo size={36} />
+                    <h2>NexusMeet</h2>
                 </div>
                 <div className="navBarActions">
                     <IconButton onClick={() => navigate('/home')} title="Back to Home"

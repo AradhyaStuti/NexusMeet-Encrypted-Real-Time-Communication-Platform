@@ -1,7 +1,7 @@
 {
-  "name": "meetsync-backend",
+  "name": "nexusmeet-backend",
   "version": "1.0.0",
-  "description": "MeetSync video conferencing backend — Express, Socket.io, MongoDB",
+  "description": "NexusMeet backend — Express, Socket.io, MongoDB",
   "author": "Aradhya Stuti",
   "main": "src/app.js",
   "type": "module",
