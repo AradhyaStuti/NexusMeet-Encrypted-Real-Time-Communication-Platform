@@ -5,7 +5,7 @@
 
 services:
   - type: web
-    name: meetsync-backend
+    name: nexusmeet-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -19,12 +19,12 @@ services:
         generateValue: true
       - key: MONGO_URI
         fromDatabase:
-          name: meetsync-db
+          name: nexusmeet-db
           property: connectionString
     healthCheckPath: /health
 
   - type: web
-    name: meetsync-frontend
+    name: nexusmeet-frontend
     env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
@@ -32,7 +32,7 @@ services:
       - key: REACT_APP_BACKEND_URL
         fromService:
           type: web
-          name: meetsync-backend
+          name: nexusmeet-backend
           property: hostport
     routes:
       - type: rewrite
@@ -40,6 +40,6 @@ services:
         destination: /index.html
 
 databases:
-  - name: meetsync-db
+  - name: nexusmeet-db
     plan: free
-    databaseName: meetsync
+    databaseName: nexusmeet

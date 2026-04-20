@@ -1,5 +1,5 @@
 {
-  "name": "meetsync-e2e",
+  "name": "nexusmeet-e2e",
   "private": true,
   "scripts": {
     "test": "npx playwright test",

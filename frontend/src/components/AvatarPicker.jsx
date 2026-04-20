@@ -7,7 +7,7 @@ const AVATARS = [
     '🌸', '⭐', '💎', '⚡',
 ]
 
-const AVATAR_KEY = 'meetSync_avatar'
+const AVATAR_KEY = 'nexusmeet_avatar'
 
 export function getAvatar() {
     return localStorage.getItem(AVATAR_KEY) || '😊'

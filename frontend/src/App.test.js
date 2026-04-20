@@ -13,9 +13,9 @@ Object.defineProperty(navigator, 'mediaDevices', {
     writable: true,
 });
 
-test('renders landing page with MeetSync branding', () => {
+test('renders landing page with NexusMeet branding', () => {
     render(<App />);
-    const brandElements = screen.getAllByText(/MeetSync/i);
+    const brandElements = screen.getAllByText(/NexusMeet/i);
     expect(brandElements.length).toBeGreaterThan(0);
 });
 

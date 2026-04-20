@@ -5,7 +5,7 @@ const ROOM = '/e2e-test-room-' + Date.now();
 test.describe('Video Call E2E', () => {
     test('landing page loads', async ({ page }) => {
         await page.goto('/');
-        await expect(page.getByRole('heading', { name: 'MeetSync' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'NexusMeet' })).toBeVisible();
     });
 
     test('can join meeting as host', async ({ page }) => {

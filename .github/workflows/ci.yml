@@ -148,7 +148,7 @@ jobs:
         env:
           NODE_ENV: test
           PORT: 8000
-          MONGO_URI: mongodb://localhost:27017/meetsync-e2e
+          MONGO_URI: mongodb://localhost:27017/nexusmeet-e2e
           JWT_SECRET: e2e-test-secret
           RATE_LIMIT_MAX: 500
 
